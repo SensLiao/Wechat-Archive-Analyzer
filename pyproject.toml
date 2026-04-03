@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wxtools"]
+
+[project]
+name = "wxtools"
+version = "0.1.0"
+description = "Local-first WeChat chat history decryption and analysis toolkit"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "cryptography>=41.0",
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+fast = ["pysqlcipher3>=1.2"]
+dev = ["pytest>=7.0", "ruff>=0.4"]
+
+[project.scripts]
+wxtools = "wxtools.cli.main:cli"
+
+[project.entry-points."wxtools.plugins"]
+wechat = "wxtools.plugins.wechat:WeChatPlugin"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+src = ["src"]
