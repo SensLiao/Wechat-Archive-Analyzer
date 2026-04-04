@@ -13,8 +13,10 @@ description: "Query and analyze your local WeChat chat history via the wxtools C
 在执行任何操作前，先确认 wxtools 可用：
 
 ```bash
-wxtools --version
+PYTHONUTF8=1 wxtools --version
 ```
+
+> **Windows 编码兼容性**：在中文 Windows 环境下，Python 可能因 GBK 编码问题启动失败。所有 `wxtools` 命令**必须**加 `PYTHONUTF8=1` 前缀，确保 UTF-8 模式。下文所有示例已包含此前缀。
 
 ### wxtools 未安装
 
@@ -33,14 +35,14 @@ pip install -e .
 pip install pycryptodome
 ```
 
-安装后重新验证 `wxtools --version`。
+安装后重新验证 `PYTHONUTF8=1 wxtools --version`。
 
 ### wxtools 已安装
 
 检查密钥状态：
 
 ```bash
-wxtools --json key status
+PYTHONUTF8=1 wxtools --json key status
 ```
 
 - 如果返回 `"count": 0` 或 `KEY_NOT_FOUND`，进入密钥提取流程
@@ -66,7 +68,7 @@ wxtools --json key status
 告诉用户这两个条件，确认后执行：
 
 ```bash
-wxtools --json key extract
+PYTHONUTF8=1 wxtools --json key extract
 ```
 
 ### 提取成功
@@ -89,7 +91,7 @@ wxtools --json key extract
 ### 搜索消息
 
 ```bash
-wxtools --json query "关键词" --contact "联系人" --conversation "群名" --since 2026-03-01 --until 2026-04-01 --type text --limit 100 --offset 0
+PYTHONUTF8=1 wxtools --json query "关键词" --contact "联系人" --conversation "群名" --since 2026-03-01 --until 2026-04-01 --type text --limit 100 --offset 0
 ```
 
 所有参数均可选，按需组合。日期用 YYYY-MM-DD 格式。`--type` 可选值：`text`, `image`, `file`, `voice`, `video`, `system`。
@@ -99,7 +101,7 @@ wxtools --json query "关键词" --contact "联系人" --conversation "群名" -
 ### 导出记录
 
 ```bash
-wxtools --json export --format json --output ./export/ --contact "联系人" --since 2026-01-01
+PYTHONUTF8=1 wxtools --json export --format json --output ./export/ --contact "联系人" --since 2026-01-01
 ```
 
 如果用户没有指定过滤范围（可能是全量导出），**必须先告知预计消息量，等用户确认后再加 `--yes` 执行**。
@@ -107,31 +109,31 @@ wxtools --json export --format json --output ./export/ --contact "联系人" --s
 ### 密钥管理
 
 ```bash
-wxtools --json key status          # 查看密钥状态
-wxtools --json key extract         # 提取密钥（需管理员+微信运行）
-wxtools key set-password           # 设置密码保护（交互式，不加 --json）
-wxtools key remove-password        # 移除密码（交互式，不加 --json）
+PYTHONUTF8=1 wxtools --json key status          # 查看密钥状态
+PYTHONUTF8=1 wxtools --json key extract         # 提取密钥（需管理员+微信运行）
+PYTHONUTF8=1 wxtools key set-password           # 设置密码保护（交互式，不加 --json）
+PYTHONUTF8=1 wxtools key remove-password        # 移除密码（交互式，不加 --json）
 ```
 
 ### 缓存管理
 
 ```bash
-wxtools --json cache status        # 查看缓存状态
-wxtools --json cache clear --yes   # 清除缓存
+PYTHONUTF8=1 wxtools --json cache status        # 查看缓存状态
+PYTHONUTF8=1 wxtools --json cache clear --yes   # 清除缓存
 ```
 
 ### 配置
 
 ```bash
-wxtools --json config show                              # 查看配置
-wxtools config set wechat_data_dir "D:\wechat_data"     # 修改微信数据路径
-wxtools config set active_account wxid_xxx              # 切换默认账号
+PYTHONUTF8=1 wxtools --json config show                              # 查看配置
+PYTHONUTF8=1 wxtools config set wechat_data_dir "D:\wechat_data"     # 修改微信数据路径
+PYTHONUTF8=1 wxtools config set active_account wxid_xxx              # 切换默认账号
 ```
 
 ### 原生 SQL（调试用）
 
 ```bash
-wxtools --json query --sql "SELECT * FROM message LIMIT 10"
+PYTHONUTF8=1 wxtools --json query --sql "SELECT * FROM message LIMIT 10"
 ```
 
 仅在用户明确要求 SQL 或标准查询无法满足需求时使用。
@@ -177,19 +179,19 @@ wxtools --json query --sql "SELECT * FROM message LIMIT 10"
 | error code | 回复与处理 |
 |------------|-----------|
 | `KEY_NOT_FOUND` | 引导提取密钥（见密钥提取流程） |
-| `KEY_INVALID` | "密钥已失效，需要重新提取。" → 执行 `wxtools --json key extract` |
+| `KEY_INVALID` | "密钥已失效，需要重新提取。" → 执行 `PYTHONUTF8=1 wxtools --json key extract` |
 | `KEY_PASSWORD_WRONG` | "密码不正确，请重试。" → 密码类操作需要用户交互输入 |
 | `WECHAT_NOT_RUNNING` | "请先打开微信并登录，然后告诉我。" |
 | `ADMIN_REQUIRED` | "需要管理员权限。请以管理员身份重新打开终端。" |
 | `AMBIGUOUS_CONTACT` | 展示候选列表（含备注名），让用户选择编号 |
 | `AMBIGUOUS_CONVERSATION` | 展示候选列表，让用户选择 |
 | `DB_LOCKED` | "微信数据库被占用。" → 等几秒后自动重试一次 |
-| `DB_NOT_FOUND` | "找不到微信数据库。" → 执行 `wxtools --json config show` 检查 `wechat_data_dir`，引导用户修正路径 |
-| `DB_DECRYPT_FAILED` | "解密失败。" → 尝试 `wxtools --json cache clear --yes` 然后重新查询；如果仍失败，引导重新提取密钥 |
+| `DB_NOT_FOUND` | "找不到微信数据库。" → 执行 `PYTHONUTF8=1 wxtools --json config show` 检查 `wechat_data_dir`，引导用户修正路径 |
+| `DB_DECRYPT_FAILED` | "解密失败。" → 尝试 `PYTHONUTF8=1 wxtools --json cache clear --yes` 然后重新查询；如果仍失败，引导重新提取密钥 |
 | `NO_RESULTS` | "没有找到匹配的消息。" → 建议放宽条件（去掉时间限制、换关键词、去掉类型过滤） |
 | `SQL_ERROR` | "SQL 语法有误。" → 检查 SQL 语句并修正后重试 |
 | `EXPORT_CONFIRM_REQUIRED` | 告知预计导出量，询问是否确认 |
-| `ACCOUNT_NOT_FOUND` | 执行 `wxtools --json key status` 查看已有账号，引导选择 |
+| `ACCOUNT_NOT_FOUND` | 执行 `PYTHONUTF8=1 wxtools --json key status` 查看已有账号，引导选择 |
 
 ### 自动重试策略
 
