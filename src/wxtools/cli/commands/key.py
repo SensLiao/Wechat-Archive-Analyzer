@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import re
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 import click
 
@@ -17,6 +22,7 @@ from wxtools.core.errors import (
     WxToolsError,
 )
 from wxtools.core.keystore import Keystore
+from wxtools.plugins.wechat.key_validator import validate_key_for_account
 
 logger = logging.getLogger("wxtools.cli.key")
 
@@ -194,6 +200,245 @@ def status(ctx):
                 prot = k.get("protection", "?")
                 created = k.get("created_at", "?")
                 click.echo(f"  {wxid} — {prot} protection, created {created}")
+
+
+def _find_db_dir(cfg, wxid: str) -> Path | None:
+    """Resolve the db_storage directory for a given wxid."""
+    from wxtools.plugins.wechat.account_discovery import discover_accounts, find_wechat_data_dir
+
+    data_dir = cfg.get("wechat_data_dir", "auto")
+    if data_dir == "auto":
+        data_dir = find_wechat_data_dir()
+    if not data_dir:
+        return None
+    accounts = discover_accounts(data_dir)
+    for acc in accounts:
+        if acc["wxid"] == wxid:
+            return Path(acc["db_dir"])
+    # Fallback: try direct path from config
+    if data_dir:
+        candidate = Path(data_dir) / wxid / "db_storage"
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+@key.command()
+@click.option("--account", help="Target account wxid.")
+@click.pass_context
+def verify(ctx, account):
+    """Verify stored key against encrypted databases."""
+    cfg, ks, state = _get_config_and_keystore(ctx)
+    wxid = _resolve_account(cfg, account)
+
+    if not wxid:
+        if state.json_mode:
+            print_json(error_envelope(
+                "ACCOUNT_NOT_FOUND", "未指定或未发现账号。",
+                "使用 --account 或配置 active_account。",
+                command="key verify",
+            ))
+        else:
+            click.echo("错误: 未找到账号。使用 --account 指定。", err=True)
+        ctx.exit(7)
+        return
+
+    try:
+        # Retrieve key (may need password)
+        password = None
+        try:
+            raw_key = ks.get_key("wechat", wxid)
+        except KeyPasswordWrongError:
+            password = click.prompt("请输入密钥密码", hide_input=True)
+            raw_key = ks.get_key("wechat", wxid, password=password)
+
+        key_data = raw_key.decode("ascii")
+
+        # Find DB directory
+        db_dir_str = cfg.get("wechat_db_dir", None)
+        if db_dir_str and db_dir_str != "auto":
+            db_dir = Path(db_dir_str)
+        else:
+            db_dir = _find_db_dir(cfg, wxid)
+
+        if not db_dir or not db_dir.is_dir():
+            if state.json_mode:
+                print_json(error_envelope(
+                    "DB_DIR_NOT_FOUND", "未找到数据库目录。",
+                    "请确认 WeChat 数据路径配置正确。",
+                    command="key verify",
+                ))
+            else:
+                click.echo("错误: 未找到数据库目录。", err=True)
+            ctx.exit(1)
+            return
+
+        if not state.json_mode:
+            click.echo("正在验证密钥...")
+
+        result = validate_key_for_account(key_data, db_dir)
+
+        # Update metadata
+        now = datetime.now(timezone.utc).isoformat()
+        ks.update_metadata("wechat", wxid, {"last_verified": now})
+
+        if state.json_mode:
+            print_json(success_envelope(
+                {"account": wxid, **result},
+                command="key verify",
+            ))
+        else:
+            if result["failed"] == 0 and result["total"] > 0:
+                click.echo(f"密钥验证成功 \u2713 ({result['passed']}/{result['total']} 数据库通过)")
+            elif result["total"] == 0:
+                click.echo("警告: 未找到可验证的数据库文件。")
+            else:
+                click.echo(f"密钥验证部分失败: {result['passed']}/{result['total']} 通过")
+                for d in result.get("details", []):
+                    if not d["ok"]:
+                        click.echo(f"  失败: {d['path']}")
+
+    except KeyNotFoundError as e:
+        if state.json_mode:
+            print_json(error_envelope(e.code, e.message, e.remediation, command="key verify"))
+        else:
+            click.echo(f"错误: {e.message}", err=True)
+        ctx.exit(1)
+    except KeyPasswordWrongError as e:
+        if state.json_mode:
+            print_json(error_envelope(e.code, e.message, e.remediation, command="key verify"))
+        else:
+            click.echo("错误: 密码错误。", err=True)
+        ctx.exit(1)
+
+
+@key.command("set")
+@click.argument("key_input")
+@click.option("--account", help="Target account wxid.")
+@click.pass_context
+def set_key(ctx, key_input, account):
+    """Manually set a decryption key (64-char hex or JSON file path)."""
+    cfg, ks, state = _get_config_and_keystore(ctx)
+    wxid = _resolve_account(cfg, account)
+
+    if not wxid:
+        if state.json_mode:
+            print_json(error_envelope(
+                "ACCOUNT_NOT_FOUND", "未指定或未发现账号。",
+                "使用 --account 或配置 active_account。",
+                command="key set",
+            ))
+        else:
+            click.echo("错误: 未找到账号。使用 --account 指定。", err=True)
+        ctx.exit(7)
+        return
+
+    # Determine key data: 64-char hex string or JSON file path
+    key_path = Path(key_input)
+    if key_path.is_file():
+        try:
+            key_data = key_path.read_text(encoding="utf-8").strip()
+            # Validate it's JSON
+            json.loads(key_data)
+        except (json.JSONDecodeError, OSError) as e:
+            if state.json_mode:
+                print_json(error_envelope(
+                    "INVALID_KEY_FORMAT", f"无法读取密钥文件: {e}",
+                    "请提供有效的 JSON 密钥文件。",
+                    command="key set",
+                ))
+            else:
+                click.echo(f"错误: 无法读取密钥文件: {e}", err=True)
+            ctx.exit(1)
+            return
+    else:
+        # Validate hex string
+        if not re.match(r"^[0-9a-fA-F]{64}$", key_input):
+            if state.json_mode:
+                print_json(error_envelope(
+                    "INVALID_KEY_FORMAT", "密钥必须是64位十六进制字符串或有效的JSON文件路径。",
+                    "请提供64位hex字符串或JSON文件。",
+                    command="key set",
+                ))
+            else:
+                click.echo("错误: 密钥必须是64位十六进制字符串或有效的JSON文件路径。", err=True)
+            ctx.exit(1)
+            return
+        key_data = key_input
+
+    # Find DB directory for validation
+    db_dir_str = cfg.get("wechat_db_dir", None)
+    if db_dir_str and db_dir_str != "auto":
+        db_dir = Path(db_dir_str)
+    else:
+        db_dir = _find_db_dir(cfg, wxid)
+
+    if not state.json_mode:
+        click.echo("正在验证密钥...")
+
+    if db_dir and db_dir.is_dir():
+        result = validate_key_for_account(key_data, db_dir)
+        if result["failed"] > 0:
+            if not state.json_mode:
+                click.echo(f"警告: 验证部分失败 ({result['passed']}/{result['total']} 通过)")
+                for d in result.get("details", []):
+                    if not d["ok"]:
+                        click.echo(f"  失败: {d['path']}")
+                if not click.confirm("是否仍然保存此密钥?"):
+                    click.echo("已取消。")
+                    ctx.exit(0)
+                    return
+            # In JSON mode, still store but report validation
+    else:
+        if not state.json_mode:
+            click.echo("警告: 未找到数据库目录，跳过验证。")
+
+    # Ask about password protection (interactive only)
+    protection = "dpapi"
+    password = None
+    if not state.json_mode:
+        wants_password = click.confirm("是否使用密码保护密钥?", default=False)
+        if wants_password:
+            password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
+            protection = "password"
+            ttl_choices = {"1": "30m", "2": "1h", "3": "2h", "4": "24h"}
+            click.echo("选择密码缓存时长:")
+            click.echo("  1) 30分钟")
+            click.echo("  2) 1小时")
+            click.echo("  3) 2小时")
+            click.echo("  4) 24小时")
+            ttl_choice = click.prompt("选择", default="2", type=click.Choice(["1", "2", "3", "4"]))
+            # TTL stored in metadata for session management
+            ttl_value = ttl_choices[ttl_choice]
+        else:
+            if sys.platform != "win32":
+                click.echo("非 Windows 系统必须使用密码保护。")
+                password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
+                protection = "password"
+
+    # Store key
+    key_bytes = key_data.encode("ascii")
+    try:
+        ks.store_key("wechat", wxid, key_bytes, protection=protection, password=password)
+
+        if state.json_mode:
+            print_json(success_envelope(
+                {"account": wxid, "protection": protection, "status": "stored"},
+                command="key set",
+            ))
+        else:
+            click.echo(f"密钥已保存 \u2713 (账号: {wxid}, 保护方式: {protection})")
+
+    except (OSError, ValueError) as e:
+        if state.json_mode:
+            print_json(error_envelope(
+                "KEY_STORE_FAILED", str(e),
+                "请检查权限和配置。",
+                command="key set",
+            ))
+        else:
+            click.echo(f"错误: {e}", err=True)
+        ctx.exit(1)
 
 
 @key.command(name="set-password")
