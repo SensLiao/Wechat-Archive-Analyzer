@@ -81,6 +81,10 @@ class Config:
     def logs_dir(self) -> Path:
         return self.home_dir / "logs"
 
+    @property
+    def session_dir(self) -> Path:
+        return self.home_dir / "session"
+
     def to_dict(self) -> Dict[str, Any]:
         return {k: v for k, v in self._data.items() if not k.startswith("_")}
 

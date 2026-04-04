@@ -46,3 +46,8 @@ def test_env_override(tmp_path, monkeypatch):
     monkeypatch.setenv("WXTOOLS_LOG_LEVEL", "DEBUG")
     cfg = load_config(home=tmp_path / ".wxtools")
     assert cfg.get("log_level") == "DEBUG"
+
+
+def test_config_session_dir(tmp_path):
+    cfg = Config(overrides={"_home": str(tmp_path / ".wxtools")})
+    assert cfg.session_dir == tmp_path / ".wxtools" / "session"
