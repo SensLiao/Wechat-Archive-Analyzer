@@ -53,7 +53,7 @@ def _get_key_with_session(cfg, ks: Keystore, wxid: str, json_mode: bool) -> byte
 
 
 def _resolve_account_and_reader(cfg, account_arg, json_mode: bool = False):
-    """Resolve account, ensure cache exists (decrypt if needed), return DbReader."""
+    """Resolve account, ensure cache exists (decrypt if needed), return (DbReader, account_path)."""
     from wxtools.plugins.wechat.account_discovery import discover_accounts, find_wechat_data_dir
     from wxtools.plugins.wechat.db_reader import DbReader
     from wxtools.plugins.wechat.decryptor import Decryptor
@@ -82,9 +82,11 @@ def _resolve_account_and_reader(cfg, account_arg, json_mode: bool = False):
     # Find DB source directory
     accounts = discover_accounts(data_dir)
     db_dir = None
+    account_path = None
     for acc in accounts:
         if acc["wxid"] == wxid:
             db_dir = acc["db_dir"]
+            account_path = acc["path"]
             break
 
     if not db_dir:
@@ -105,7 +107,7 @@ def _resolve_account_and_reader(cfg, account_arg, json_mode: bool = False):
     decryptor = Decryptor()
     decryptor.decrypt_all(Path(db_dir), account_cache, key_data)
 
-    return DbReader(wxid, cache_dir)
+    return DbReader(wxid, cache_dir), Path(account_path)
 
 
 @click.command()
@@ -119,8 +121,10 @@ def _resolve_account_and_reader(cfg, account_arg, json_mode: bool = False):
 @click.option("--offset", type=int, default=0, help="Pagination offset.")
 @click.option("--sql", help="Raw SQL query (debug mode).")
 @click.option("--account", help="Select account wxid.")
+@click.option("--attachments", type=click.Choice(["path", "check"]),
+              default=None, help="Attachment handling: path=resolve paths, check=verify existence.")
 @click.pass_context
-def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limit, offset, sql, account):
+def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limit, offset, sql, account, attachments):
     """Search messages in decrypted WeChat databases."""
     state = ctx.obj
     cfg = load_config()
@@ -129,7 +133,7 @@ def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limi
         limit = cfg.get("default_limit", 100)
 
     try:
-        reader = _resolve_account_and_reader(cfg, account, json_mode=state.json_mode)
+        reader, account_data_path = _resolve_account_and_reader(cfg, account, json_mode=state.json_mode)
 
         if sql:
             # Raw SQL mode
@@ -166,6 +170,15 @@ def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limi
         )
 
         result = reader.search(keyword=keyword, filters=msg_filter)
+
+        # Attachment resolution
+        if attachments and result.messages:
+            from wxtools.plugins.wechat.attachment_resolver import AttachmentResolver
+            resolver = AttachmentResolver(account_data_path)
+            for msg in result.messages:
+                msg.attachment_path = resolver.resolve_path(msg.type, msg.content)
+                if attachments == "check" and msg.attachment_path:
+                    msg.attachment_exists = resolver.check_exists(msg.attachment_path)
 
         if state.json_mode:
             print_json(success_envelope(

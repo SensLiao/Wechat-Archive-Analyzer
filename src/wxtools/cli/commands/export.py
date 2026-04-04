@@ -38,8 +38,10 @@ WRITERS = {"json": JsonWriter, "csv": CsvWriter, "html": HtmlWriter}
 @click.option("--limit", type=int, help="Max messages.")
 @click.option("--account", help="Select account.")
 @click.option("--yes", is_flag=True, help="Skip confirmation for large exports.")
+@click.option("--attachments", type=click.Choice(["path", "check", "copy"]),
+              default=None, help="Attachment handling: path=resolve, check=verify, copy=copy to export dir.")
 @click.pass_context
-def export(ctx, fmt, output_path, contact, conversation, since, until_date, limit, account, yes):
+def export(ctx, fmt, output_path, contact, conversation, since, until_date, limit, account, yes, attachments):
     """Export messages to file."""
     state = ctx.obj
     cfg = load_config()
@@ -47,7 +49,7 @@ def export(ctx, fmt, output_path, contact, conversation, since, until_date, limi
     try:
         from wxtools.cli.commands.query import _resolve_account_and_reader
 
-        reader = _resolve_account_and_reader(cfg, account, json_mode=state.json_mode)
+        reader, account_data_path = _resolve_account_and_reader(cfg, account, json_mode=state.json_mode)
 
         # Parse date filters
         since_dt: Optional[datetime] = None
@@ -90,8 +92,22 @@ def export(ctx, fmt, output_path, contact, conversation, since, until_date, limi
         writer_cls = WRITERS[fmt.lower()]
         writer = writer_cls(out)
 
+        # Set up attachment resolver if requested
+        resolver = None
+        if attachments:
+            from wxtools.plugins.wechat.attachment_resolver import AttachmentResolver
+            resolver = AttachmentResolver(account_data_path)
+
         written = 0
         for msg in reader.iter_messages(msg_filter):
+            if resolver:
+                msg.attachment_path = resolver.resolve_path(msg.type, msg.content)
+                if attachments in ("check", "copy") and msg.attachment_path:
+                    msg.attachment_exists = resolver.check_exists(msg.attachment_path)
+                if attachments == "copy" and msg.attachment_path:
+                    copied_name = resolver.copy_to_export(msg.attachment_path, out)
+                    if copied_name:
+                        msg.attachment_path = f"attachments/{copied_name}"
             writer.write_message(msg)
             written += 1
 
