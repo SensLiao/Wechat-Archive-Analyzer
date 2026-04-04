@@ -145,6 +145,15 @@ class Keystore:
         if meta_path.exists():
             meta_path.unlink()
 
+    def update_metadata(self, plugin: str, account_id: str, updates: Dict[str, Any]) -> None:
+        """Merge *updates* into existing metadata JSON."""
+        meta_path = self._meta_path(plugin, account_id)
+        if not meta_path.exists():
+            return
+        meta = json.loads(meta_path.read_text("utf-8"))
+        meta.update(updates)
+        meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
     def list_keys(self) -> List[Dict[str, Any]]:
         keys: List[Dict[str, Any]] = []
         for meta_file in sorted(self._dir.glob("*.json")):

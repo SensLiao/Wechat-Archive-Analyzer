@@ -41,6 +41,23 @@ def test_delete_key(keystore):
     assert keystore.list_keys() == []
 
 
+def test_update_metadata(keystore):
+    key = bytes.fromhex("ab" * 32)
+    keystore.store_key("wechat", "wxid_meta", key, protection="password", password="p")
+    keystore.update_metadata("wechat", "wxid_meta", {"last_verified": "2026-04-04T00:00:00Z", "extra": "value"})
+    keys = keystore.list_keys()
+    meta = [k for k in keys if k["wxid"] == "wxid_meta"][0]
+    assert meta["last_verified"] == "2026-04-04T00:00:00Z"
+    assert meta["extra"] == "value"
+    # Original fields preserved
+    assert meta["protection"] == "password"
+
+
+def test_update_metadata_no_file(keystore):
+    # Should not raise when metadata file doesn't exist
+    keystore.update_metadata("wechat", "wxid_nonexist", {"foo": "bar"})
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="DPAPI only on Windows")
 def test_store_and_retrieve_dpapi(keystore):
     key = bytes.fromhex("ab" * 32)
