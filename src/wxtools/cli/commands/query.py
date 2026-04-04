@@ -63,17 +63,12 @@ def _resolve_account_and_reader(cfg, account_arg):
 
     from pathlib import Path
 
-    # Check for either 4.x or 3.x cache layout
-    has_cache = (
-        (account_cache / "contact" / "contact.db").exists()
-        or (account_cache / "MicroMsg.db").exists()
-    )
-    if not has_cache:
-        # Need to decrypt — get key from keystore
-        raw_key = ks.get_key("wechat", wxid)
-        key_data = raw_key.decode("ascii")
-        decryptor = Decryptor()
-        decryptor.decrypt_all(Path(db_dir), account_cache, key_data)
+    # Always run decrypt_all — it checks mtime per file and only
+    # re-decrypts databases whose source is newer than the cache.
+    raw_key = ks.get_key("wechat", wxid)
+    key_data = raw_key.decode("ascii")
+    decryptor = Decryptor()
+    decryptor.decrypt_all(Path(db_dir), account_cache, key_data)
 
     return DbReader(wxid, cache_dir)
 
