@@ -1,8 +1,8 @@
 # wxtools — 微信聊天记录解密与查询工具
 
-> **当前版本：v0.1.0**
+> **当前版本：v0.2.0**
 
-本地解密微信 PC 版（4.x）的 SQLCipher 加密数据库，支持关键词搜索、按联系人/时间筛选、导出 JSON。所有数据留在本地。
+本地解密微信 PC 版（4.x / 3.x）的 SQLCipher 加密数据库，支持关键词搜索、全文检索、按联系人/时间筛选，导出 JSON / CSV / HTML（聊天气泡），附件自动解析与导出。所有数据留在本地。
 
 提供 Claude Code 和 Codex 的 `/wechat` skill，可用自然语言查询聊天记录。
 
@@ -46,9 +46,12 @@ wxtools query --conversation "工作群" --type image --limit 50
 ```bash
 wxtools export --contact "张三" -o ./output/
 wxtools export --conversation "工作群" --since 2026-01-01
+wxtools export --format html --contact "张三" -o ./output/   # HTML 聊天气泡
+wxtools export --format csv --conversation "工作群" -o ./output/  # CSV 表格
+wxtools export --attachments copy -o ./output/   # 同时导出附件文件
 ```
 
-超过 1000 条时需确认，或加 `--yes` 跳过。输出 JSON 格式。
+支持 JSON（默认）、CSV、HTML 三种格式。超过 1000 条时需确认，或加 `--yes` 跳过。`--attachments` 支持 `path`（解析路径）、`check`（检查存在）、`copy`（复制到导出目录）。
 
 ## 命令速览
 
@@ -56,12 +59,18 @@ wxtools export --conversation "工作群" --since 2026-01-01
 |------|------|
 | `wxtools key extract` | 提取密钥（一次性） |
 | `wxtools key status` | 查看密钥状态 |
+| `wxtools key verify` | 验证密钥有效性 |
+| `wxtools key set <hex/file>` | 手动设置密钥 |
 | `wxtools key set-password` | 设置密码保护 |
 | `wxtools key remove-password` | 移除密码，恢复 DPAPI |
+| `wxtools key unlock` | 临时解锁会话（缓存密钥） |
+| `wxtools key lock [--all]` | 锁定会话 |
 | `wxtools query "关键词"` | 搜索消息 |
-| `wxtools export` | 导出聊天记录 |
+| `wxtools export` | 导出聊天记录（JSON/CSV/HTML） |
 | `wxtools cache status` | 查看缓存状态 |
 | `wxtools cache clear` | 清除缓存 |
+| `wxtools cache build-index` | 构建全文搜索索引 |
+| `wxtools cache drop-index` | 删除全文搜索索引 |
 | `wxtools config show` | 查看配置 |
 | `wxtools config set <key> <value>` | 修改配置 |
 
@@ -127,7 +136,22 @@ wxtools config set active_account wxid_xxx  # 设置默认账号
 
 ## 版本历史
 
-### v0.1.0（当前版本）
+### v0.2.0（当前版本）
+
+v2 新增功能：
+
+| 功能 | 说明 |
+|------|------|
+| 密钥验证 | `key verify` 验证存储密钥与加密数据库匹配，返回逐库通过/失败统计 |
+| 手动设密钥 | `key set` 接受 64 字符 hex 或 JSON 密钥文件，验证后存储 |
+| 会话解锁 | `key unlock/lock` 临时缓存解密密钥，避免重复输入密码，支持 TTL |
+| 全文搜索 | `cache build-index` 构建 FTS5 索引，CJK 分词优化，中文子串秒级检索 |
+| CSV 导出 | `export --format csv` 平铺表格格式，方便 Excel / 数据分析 |
+| HTML 导出 | `export --format html` 微信风格聊天气泡 UI，每个会话独立页面 + 导航 |
+| 附件处理 | `export --attachments [path\|check\|copy]` 解析附件路径、检查存在、复制到导出目录 |
+| 分页查询 | DbReader 新增 `count_messages` / `search_page` / `iter_messages` 分页接口 |
+
+### v0.1.0
 
 完整的 v1 功能实现：
 
