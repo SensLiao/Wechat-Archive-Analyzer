@@ -74,7 +74,7 @@ def export(ctx, fmt, output_path, contact, conversation, since, until_date, limi
     try:
         from wxtools.cli.commands.query import _resolve_account_and_reader
 
-        reader = _resolve_account_and_reader(cfg, account)
+        reader = _resolve_account_and_reader(cfg, account, json_mode=state.json_mode)
 
         # Build filter for counting
         since_dt = None
