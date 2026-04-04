@@ -17,6 +17,8 @@ pip install pycryptodome   # AES 解密依赖
 
 要求：Windows 10/11，Python 3.10+，微信 PC 4.x。
 
+如果你在中文 Windows / Anaconda 环境里运行，并且项目路径包含非 ASCII 字符，建议后续统一使用 `python -X utf8 -m wxtools ...`，避免 Python 以 GBK 模式启动时读取 `.pth` 失败。
+
 ## 快速开始
 
 ### 1. 提取密钥（一次性，需管理员权限 + 微信运行中）
@@ -70,15 +72,15 @@ wxtools export --conversation "工作群" --since 2026-01-01
 ### Claude Code
 
 ```bash
-wxtools install-skill          # 安装到 ~/.claude/skills/
-wxtools uninstall-skill        # 卸载
+python -X utf8 -m wxtools install-skill          # 安装到 ~/.claude/skills/
+python -X utf8 -m wxtools uninstall-skill        # 卸载
 ```
 
 ### Codex
 
 ```bash
-wxtools install-skill --codex  # 安装到 ~/.codex/skills/
-wxtools uninstall-skill --codex
+python -X utf8 -m wxtools install-skill --codex  # 安装到 ~/.codex/skills/
+python -X utf8 -m wxtools uninstall-skill --codex
 ```
 
 安装后在对话中输入：
