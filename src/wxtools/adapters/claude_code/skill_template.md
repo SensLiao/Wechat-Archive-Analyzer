@@ -1,5 +1,6 @@
 ---
 name: wechat
+user_invocable: true
 description: "Query and analyze your local WeChat chat history via the wxtools CLI. Use this skill ONLY when the user explicitly invokes /wechat — do not trigger on general mentions of 微信, 消息, or 聊天."
 ---
 
