@@ -107,11 +107,18 @@ class TestKeySet:
             cfg.get.side_effect = _cfg_get
             mock_cfg.return_value = cfg
 
-            # Input: no password protection
+            # On Windows: "是否使用密码保护密钥?" → n
+            # On macOS/Linux: system keychain unavailable → prompts password (twice)
+            import sys
+            if sys.platform == "win32":
+                test_input = "n\n"
+            else:
+                test_input = "testpass\ntestpass\n"
+
             result = runner.invoke(
                 cli,
                 ["key", "set", "--account", "wxid_test", key_hex],
-                input="n\n",
+                input=test_input,
             )
             assert result.exit_code == 0
             assert "密钥已保存" in result.output
