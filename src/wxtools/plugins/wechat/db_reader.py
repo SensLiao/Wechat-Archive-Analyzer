@@ -6,7 +6,7 @@ import hashlib
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 from wxtools.core.errors import CacheEmptyError, NoResultsError, SqlError
 from wxtools.core.schema import Contact, Message, MessageFilter, QueryResult
@@ -277,6 +277,254 @@ class DbReader:
                 "offset": offset,
             },
         )
+
+    def _build_where_clauses(
+        self,
+        filters: MessageFilter,
+        is_4x: bool,
+        contacts: Optional[Dict[str, Contact]] = None,
+        name2id: Optional[Dict[int, str]] = None,
+        keyword: Optional[str] = None,
+    ) -> Tuple[List[str], List[Any]]:
+        """Build WHERE clause parts and params from filters.
+
+        Returns (where_parts, params).
+        """
+        col_content = "message_content" if is_4x else "StrContent"
+        col_time = "create_time" if is_4x else "CreateTime"
+        col_type = "local_type" if is_4x else "Type"
+        col_sender = "real_sender_id" if is_4x else "StrTalker"
+
+        where_clauses: List[str] = []
+        params: List[Any] = []
+
+        kw = keyword or filters.keyword
+        if kw:
+            where_clauses.append(f"{col_content} LIKE ?")
+            params.append(f"%{kw}%")
+
+        if filters.contact and contacts is not None and name2id is not None:
+            if is_4x:
+                matched_ids = self._resolve_contact_ids(
+                    filters.contact, contacts, name2id
+                )
+                if matched_ids:
+                    placeholders = ",".join("?" * len(matched_ids))
+                    where_clauses.append(f"{col_sender} IN ({placeholders})")
+                    params.extend(matched_ids)
+            else:
+                matched_wxids = [
+                    c.id for c in contacts.values()
+                    if filters.contact in (c.display_name or "")
+                ]
+                if matched_wxids:
+                    placeholders = ",".join("?" * len(matched_wxids))
+                    where_clauses.append(f"{col_sender} IN ({placeholders})")
+                    params.extend(matched_wxids)
+
+        if filters.since:
+            ts = int(filters.since.timestamp())
+            where_clauses.append(f"{col_time} >= ?")
+            params.append(ts)
+        if filters.until:
+            ts = int(filters.until.timestamp())
+            where_clauses.append(f"{col_time} <= ?")
+            params.append(ts)
+        if filters.msg_type:
+            type_codes = _type_name_to_codes(filters.msg_type)
+            if type_codes:
+                placeholders = ",".join("?" * len(type_codes))
+                where_clauses.append(f"{col_type} IN ({placeholders})")
+                params.extend(type_codes)
+
+        return where_clauses, params
+
+    def _iter_all_tables(
+        self, filters: MessageFilter
+    ) -> Generator[
+        Tuple[sqlite3.Connection, str, bool, Dict[int, str], str], None, None
+    ]:
+        """Yield (conn, table_name, is_4x, name2id, db_name) for matching tables.
+
+        Caller is responsible for closing connections when done.
+        """
+        contacts = self._load_contacts()
+        for shard in self._msg_shards():
+            name2id = self._load_name2id(shard)
+            conn = self._connect(shard)
+            try:
+                if filters.conversation:
+                    target_tables = self._find_conversation_tables(
+                        conn, filters.conversation, contacts, name2id
+                    )
+                else:
+                    target_tables = self._get_msg_tables(conn)
+
+                for table_name in target_tables:
+                    is_v4 = table_name.startswith("Msg_")
+                    yield conn, table_name, is_v4, name2id, shard.name
+            finally:
+                conn.close()
+
+    def count_messages(self, filters: MessageFilter) -> int:
+        """Count messages matching filters across all shards."""
+        self._ensure_cache_exists()
+        contacts = self._load_contacts()
+        total = 0
+
+        for conn, table_name, is_v4, name2id, db_name in self._iter_all_tables(filters):
+            where_parts, params = self._build_where_clauses(
+                filters, is_v4, contacts, name2id
+            )
+            where_sql = " AND ".join(where_parts) if where_parts else "1=1"
+            sql = f'SELECT COUNT(*) FROM "{table_name}" WHERE {where_sql}'
+            try:
+                row = conn.execute(sql, params).fetchone()
+                total += row[0]
+            except sqlite3.OperationalError:
+                continue
+
+        return total
+
+    def search_page(self, filters: MessageFilter) -> QueryResult:
+        """Paginated search: count total, then fetch one page."""
+        self._ensure_cache_exists()
+        contacts = self._load_contacts()
+
+        total = self.count_messages(filters)
+
+        # Collect all matching messages (for cross-shard sort + dedup)
+        all_messages: List[Message] = []
+        for conn, table_name, is_v4, name2id, db_name in self._iter_all_tables(filters):
+            conv_wxid = self._table_to_conversation(table_name, name2id)
+            where_parts, params = self._build_where_clauses(
+                filters, is_v4, contacts, name2id
+            )
+            col_time = "create_time" if is_v4 else "CreateTime"
+            where_sql = " AND ".join(where_parts) if where_parts else "1=1"
+            sql = (
+                f'SELECT * FROM "{table_name}" '
+                f"WHERE {where_sql} ORDER BY {col_time} ASC"
+            )
+            try:
+                for row in conn.execute(sql, params):
+                    row_dict = dict(row)
+                    if is_v4:
+                        sender_id = row_dict.get("real_sender_id", 0)
+                        sender_wxid = name2id.get(sender_id, "")
+                    else:
+                        sender_wxid = row_dict.get("StrTalker", "")
+                    sender_contact = contacts.get(sender_wxid)
+                    sender_name = (
+                        sender_contact.display_name if sender_contact else sender_wxid
+                    )
+                    conv_contact = contacts.get(conv_wxid)
+                    conv_title = (
+                        conv_contact.display_name if conv_contact else conv_wxid
+                    )
+                    msg = row_to_message(
+                        row_dict,
+                        db_name=db_name,
+                        sender_name=sender_name,
+                        sender_wxid=sender_wxid,
+                        conversation_id=conv_wxid,
+                        conversation_title=conv_title,
+                    )
+                    all_messages.append(msg)
+            except sqlite3.OperationalError:
+                continue
+
+        # Dedup by server_id
+        seen: Set[int] = set()
+        unique: List[Message] = []
+        for msg in all_messages:
+            if msg.server_id not in seen:
+                seen.add(msg.server_id)
+                unique.append(msg)
+        unique.sort(key=lambda m: (m.timestamp, m.server_id))
+
+        offset = filters.offset
+        limit = filters.limit
+        page = unique[offset : offset + limit]
+        has_more = (offset + limit) < total
+
+        return QueryResult(
+            messages=page,
+            total_estimate=total,
+            has_more=has_more,
+            query={
+                "keyword": filters.keyword,
+                "contact": filters.contact,
+                "conversation": filters.conversation,
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+
+    def iter_messages(
+        self, filters: MessageFilter
+    ) -> Generator[Message, None, None]:
+        """Yield Message objects matching filters. Respects filters.limit."""
+        self._ensure_cache_exists()
+        contacts = self._load_contacts()
+
+        # Collect all, dedup, sort, then yield
+        all_messages: List[Message] = []
+        for conn, table_name, is_v4, name2id, db_name in self._iter_all_tables(filters):
+            conv_wxid = self._table_to_conversation(table_name, name2id)
+            where_parts, params = self._build_where_clauses(
+                filters, is_v4, contacts, name2id
+            )
+            col_time = "create_time" if is_v4 else "CreateTime"
+            where_sql = " AND ".join(where_parts) if where_parts else "1=1"
+            sql = (
+                f'SELECT * FROM "{table_name}" '
+                f"WHERE {where_sql} ORDER BY {col_time} ASC"
+            )
+            try:
+                for row in conn.execute(sql, params):
+                    row_dict = dict(row)
+                    if is_v4:
+                        sender_id = row_dict.get("real_sender_id", 0)
+                        sender_wxid = name2id.get(sender_id, "")
+                    else:
+                        sender_wxid = row_dict.get("StrTalker", "")
+                    sender_contact = contacts.get(sender_wxid)
+                    sender_name = (
+                        sender_contact.display_name if sender_contact else sender_wxid
+                    )
+                    conv_contact = contacts.get(conv_wxid)
+                    conv_title = (
+                        conv_contact.display_name if conv_contact else conv_wxid
+                    )
+                    msg = row_to_message(
+                        row_dict,
+                        db_name=db_name,
+                        sender_name=sender_name,
+                        sender_wxid=sender_wxid,
+                        conversation_id=conv_wxid,
+                        conversation_title=conv_title,
+                    )
+                    all_messages.append(msg)
+            except sqlite3.OperationalError:
+                continue
+
+        # Dedup by server_id
+        seen: Set[int] = set()
+        unique: List[Message] = []
+        for msg in all_messages:
+            if msg.server_id not in seen:
+                seen.add(msg.server_id)
+                unique.append(msg)
+        unique.sort(key=lambda m: (m.timestamp, m.server_id))
+
+        limit = filters.limit
+        count = 0
+        for msg in unique:
+            if limit and count >= limit:
+                break
+            yield msg
+            count += 1
 
     def _find_conversation_tables(
         self,
