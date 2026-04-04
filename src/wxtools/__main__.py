@@ -8,7 +8,6 @@ site.py processes .pth files.
 from __future__ import annotations
 
 import os
-import sys
 
 
 def main() -> None:

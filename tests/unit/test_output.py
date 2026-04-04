@@ -1,4 +1,3 @@
-import json
 from wxtools.cli.output import success_envelope, error_envelope
 
 

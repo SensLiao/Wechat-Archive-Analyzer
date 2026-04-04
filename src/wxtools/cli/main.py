@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import sys
 
 import click
 
 import wxtools
-from wxtools.core.errors import WxToolsError
-from wxtools.cli.output import error_envelope, print_json
 
 
 class GlobalState:

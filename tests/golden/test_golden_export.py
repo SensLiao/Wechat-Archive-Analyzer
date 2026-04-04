@@ -1,8 +1,6 @@
 """Golden output tests: export synthetic DB and compare with expected."""
 import json
 import csv
-from pathlib import Path
-import pytest
 from wxtools.cli.exporters.json_writer import JsonWriter
 from wxtools.cli.exporters.csv_writer import CsvWriter
 from wxtools.cli.exporters.html_writer import HtmlWriter

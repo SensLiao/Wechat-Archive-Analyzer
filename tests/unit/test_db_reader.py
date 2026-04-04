@@ -1,5 +1,4 @@
 import sqlite3
-from pathlib import Path
 from wxtools.plugins.wechat.db_reader import DbReader
 
 

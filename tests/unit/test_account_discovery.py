@@ -1,4 +1,3 @@
-from pathlib import Path
 from wxtools.plugins.wechat.account_discovery import discover_accounts, find_wechat_data_dir
 
 

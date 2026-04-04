@@ -1,6 +1,4 @@
 """Tests for attachment path resolution, existence check, and copy."""
-import shutil
-from pathlib import Path
 import pytest
 from wxtools.plugins.wechat.attachment_resolver import AttachmentResolver
 

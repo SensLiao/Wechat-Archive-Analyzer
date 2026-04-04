@@ -1,6 +1,4 @@
 import json
-import sqlite3
-from pathlib import Path
 from wxtools.plugins.wechat.decryptor import Decryptor, _needs_redecrypt, _parse_key_data
 
 

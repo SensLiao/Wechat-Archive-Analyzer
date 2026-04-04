@@ -1,10 +1,7 @@
 """Tests for streaming JSON export writer."""
 
-import json
 from datetime import datetime, timezone
-from pathlib import Path
 
-import pytest
 
 from wxtools.core.schema import Message
 

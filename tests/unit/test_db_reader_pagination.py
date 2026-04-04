@@ -1,7 +1,6 @@
 """Tests for DbReader count_messages, search_page, iter_messages."""
 import sqlite3
 import hashlib
-from pathlib import Path
 import pytest
 from wxtools.core.schema import MessageFilter
 from wxtools.plugins.wechat.db_reader import DbReader

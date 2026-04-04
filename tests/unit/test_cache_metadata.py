@@ -1,7 +1,6 @@
 """Tests for cache metadata written by Decryptor."""
 import json
 from pathlib import Path
-import pytest
 
 
 def _make_encrypted_db(path: Path, key_hex: str) -> None:

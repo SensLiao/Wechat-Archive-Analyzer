@@ -1,7 +1,4 @@
 """Tests for session token lifecycle."""
-import json
-import time
-from pathlib import Path
 import pytest
 from wxtools.core.unlock_session import UnlockSession
 

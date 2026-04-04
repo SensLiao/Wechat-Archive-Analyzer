@@ -410,7 +410,7 @@ def set_key(ctx, key_input, account):
             click.echo("  4) 24小时")
             ttl_choice = click.prompt("选择", default="2", type=click.Choice(["1", "2", "3", "4"]))
             # TTL stored in metadata for session management
-            ttl_value = ttl_choices[ttl_choice]
+            _ttl_value = ttl_choices[ttl_choice]
         else:
             if sys.platform != "win32":
                 click.echo("非 Windows 系统必须使用密码保护。")

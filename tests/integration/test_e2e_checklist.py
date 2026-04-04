@@ -3,7 +3,6 @@
 Skipped by default. Run with: WXTOOLS_E2E=1 python -X utf8 -m pytest tests/integration/ -v
 """
 import os
-import sys
 import pytest
 
 pytestmark = pytest.mark.skipif(

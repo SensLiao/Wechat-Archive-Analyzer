@@ -8,19 +8,16 @@ bypassing the need for the sqlcipher CLI or the raw pre-PBKDF2 key.
 
 from __future__ import annotations
 
-import hashlib
-import hmac as hmac_mod
 import json
 import logging
 import os
 import shutil
-import struct
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from wxtools.core.errors import DbDecryptFailedError, DbNotFoundError
+from wxtools.core.errors import DbDecryptFailedError
 
 logger = logging.getLogger("wxtools.decryptor")
 

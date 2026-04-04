@@ -12,7 +12,7 @@ import click
 
 from wxtools.cli.output import error_envelope, print_json, success_envelope
 from wxtools.core.config import load_config
-from wxtools.core.errors import CacheEmptyError, WxToolsError
+from wxtools.core.errors import CacheEmptyError
 from wxtools.plugins.wechat.fts_index import FtsIndex
 
 logger = logging.getLogger("wxtools.cli.cache")

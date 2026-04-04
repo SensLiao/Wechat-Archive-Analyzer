@@ -1,7 +1,6 @@
 """Tests for FTS5 index build, query, and drop."""
 import sqlite3
 import hashlib
-from pathlib import Path
 import pytest
 from wxtools.plugins.wechat.fts_index import FtsIndex
 

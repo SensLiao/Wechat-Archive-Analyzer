@@ -1,9 +1,7 @@
 """Tests for HTML chat bubble export writer."""
 
 from datetime import datetime, timezone
-from pathlib import Path
 
-import pytest
 
 from wxtools.core.schema import Message
 
@@ -50,7 +48,7 @@ def test_html_writer_index_page(tmp_path):
     writer = HtmlWriter(tmp_path / "export")
     writer.write_message(_make_msg(0, conversation_id="c1", conversation_title="好友A"))
     writer.write_message(_make_msg(1, conversation_id="c2", conversation_title="好友B"))
-    manifest = writer.finalize()
+    writer.finalize()
     index = tmp_path / "export" / "index.html"
     assert index.exists()
     index_content = index.read_text("utf-8")

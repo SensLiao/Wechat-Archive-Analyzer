@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from wxtools.core.schema import Message, Contact, Conversation, MessageFilter, QueryResult
+from wxtools.core.schema import Message, Contact, MessageFilter, QueryResult
 
 
 def test_message_creation():

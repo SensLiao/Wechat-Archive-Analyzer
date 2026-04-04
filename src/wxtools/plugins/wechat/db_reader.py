@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
-from wxtools.core.errors import CacheEmptyError, NoResultsError, SqlError
+from wxtools.core.errors import CacheEmptyError, SqlError
 from wxtools.core.schema import Contact, Message, MessageFilter, QueryResult
 from wxtools.plugins.wechat.schema_mapper import row_to_contact, row_to_message
 

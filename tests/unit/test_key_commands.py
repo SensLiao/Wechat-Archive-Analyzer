@@ -3,10 +3,8 @@ import hashlib
 import hmac as hmac_mod
 import json
 import struct
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-import pytest
 from click.testing import CliRunner
 from wxtools.cli.main import cli
 
