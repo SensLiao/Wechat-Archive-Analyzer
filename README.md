@@ -6,17 +6,17 @@
 
 提供 Claude Code 和 Codex 的 `/wechat` skill，可用自然语言查询聊天记录。
 
-## Cross-Platform Support (v0.4.0+)
+## 跨平台支持（v0.4.0+）
 
-| Capability | Windows | macOS | Linux |
-|-----------|---------|-------|-------|
-| Key extraction (`key extract`) | Yes | No | No |
-| Key import (`key set`) | Yes | Yes | Yes |
-| Query / Export | Yes | Yes | Yes |
-| Secret protection | DPAPI | Keychain | Secret Service |
-| Fallback protection | Password | Password | Password |
+| 能力 | Windows | macOS | Linux |
+|------|---------|-------|-------|
+| 密钥提取（`key extract`） | 支持 | 不支持 | 不支持 |
+| 密钥导入（`key set`） | 支持 | 支持 | 支持 |
+| 查询 / 导出 | 支持 | 支持 | 支持 |
+| 密钥保护方式 | DPAPI | Keychain | Secret Service |
+| 备用保护方式 | 密码 | 密码 | 密码 |
 
-**Non-Windows users:** Extract your key on Windows first, then use `wxtools key set <hex-or-json>` to import it on any platform.
+**非 Windows 用户：** 先在 Windows 上提取密钥，然后用 `wxtools key set <hex或json文件>` 在任意平台导入使用。
 
 ## 安装
 
@@ -27,7 +27,7 @@ pip install -e .
 pip install pycryptodome   # AES 解密依赖
 ```
 
-要求：Windows 10/11，Python 3.10+，微信 PC 4.x。
+要求：Python 3.10+。密钥提取需要 Windows 10/11 + 微信 PC 4.x；查询和导出支持 Windows / macOS / Linux。
 
 如果你在中文 Windows / Anaconda 环境里运行，并且项目路径包含非 ASCII 字符，建议后续统一使用 `python -X utf8 -m wxtools ...`，避免 Python 以 GBK 模式启动时读取 `.pth` 失败。
 
@@ -151,13 +151,13 @@ wxtools config set active_account wxid_xxx  # 设置默认账号
 
 ## 版本历史
 
-### v0.4.0 — Cross-Platform（当前版本）
+### v0.4.0 — 跨平台（当前版本）
 
-- Secret backend abstraction (DPAPI, macOS Keychain, Linux Secret Service, password-file)
-- `key set` is now the standard cross-platform key import entry point
-- `key extract` returns clear platform error on non-Windows
-- Path discovery adapters for macOS and Linux
-- CI expanded to Windows, macOS, and Ubuntu
+- 密钥保护抽象层：统一 DPAPI、macOS Keychain、Linux Secret Service、密码文件四种后端
+- `key set` 成为跨平台标准密钥导入入口
+- 非 Windows 平台执行 `key extract` 时给出明确的平台不支持提示
+- macOS / Linux 数据目录自动发现适配器
+- CI 扩展至 Windows、macOS、Ubuntu 三平台矩阵
 
 ### v0.3.0
 
