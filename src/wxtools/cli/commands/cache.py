@@ -13,6 +13,7 @@ import click
 from wxtools.cli.output import error_envelope, print_json, success_envelope
 from wxtools.core.config import load_config
 from wxtools.core.errors import CacheEmptyError, WxToolsError
+from wxtools.plugins.wechat.fts_index import FtsIndex
 
 logger = logging.getLogger("wxtools.cli.cache")
 
@@ -178,3 +179,80 @@ def clear(ctx, account, yes):
             ))
         else:
             click.echo(f"All cache cleared ({_format_size(size)} freed).")
+
+
+def _resolve_cache_dir(cfg, account):
+    """Resolve the cache directory for a given account (or auto-detect first one)."""
+    cache_base = cfg.cache_dir
+    if account:
+        d = cache_base / account
+        return d if d.is_dir() else None
+    # Auto: find first account subdir
+    if cache_base.is_dir():
+        for child in sorted(cache_base.iterdir()):
+            if child.is_dir() and not child.name.startswith("."):
+                return child
+    return None
+
+
+@cache.command("build-index")
+@click.option("--account", default=None, help="Account wxid to index.")
+@click.pass_context
+def build_index(ctx, account):
+    """Build full-text search index for cached messages."""
+    state = ctx.obj
+    cfg = load_config()
+    cache_dir = _resolve_cache_dir(cfg, account)
+
+    if cache_dir is None:
+        if state.json_mode:
+            e = CacheEmptyError()
+            print_json(error_envelope(e.code, e.message, e.remediation, command="cache build-index"))
+        else:
+            click.echo("No cached data found.")
+        ctx.exit(1)
+        return
+
+    if not state.json_mode:
+        click.echo("正在建立搜索索引...")
+
+    idx = FtsIndex(cache_dir)
+    stats = idx.build()
+
+    if state.json_mode:
+        print_json(success_envelope(
+            {"account": cache_dir.name, "indexed": stats["indexed"]},
+            command="cache build-index",
+        ))
+    else:
+        click.echo(f"索引建立完成，共 {stats['indexed']} 条消息。")
+
+
+@cache.command("drop-index")
+@click.option("--account", default=None, help="Account wxid to drop index for.")
+@click.pass_context
+def drop_index(ctx, account):
+    """Remove full-text search index."""
+    state = ctx.obj
+    cfg = load_config()
+    cache_dir = _resolve_cache_dir(cfg, account)
+
+    if cache_dir is None:
+        if state.json_mode:
+            e = CacheEmptyError()
+            print_json(error_envelope(e.code, e.message, e.remediation, command="cache drop-index"))
+        else:
+            click.echo("No cached data found.")
+        ctx.exit(1)
+        return
+
+    idx = FtsIndex(cache_dir)
+    idx.drop()
+
+    if state.json_mode:
+        print_json(success_envelope(
+            {"account": cache_dir.name, "dropped": True},
+            command="cache drop-index",
+        ))
+    else:
+        click.echo("搜索索引已删除。")
