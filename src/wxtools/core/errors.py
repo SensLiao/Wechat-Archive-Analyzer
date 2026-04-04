@@ -122,3 +122,12 @@ class ExportConfirmRequiredError(WxToolsError):
             "Add --yes flag to proceed.",
         )
         self.estimated_count = estimated_count
+
+
+class PlatformNotSupportedError(WxToolsError):
+    def __init__(self, feature: str = "", platform: str = ""):
+        super().__init__(
+            "PLATFORM_NOT_SUPPORTED",
+            f"'{feature}' is not supported on {platform}.",
+            "See 'wxtools key status' for available options on this platform.",
+        )
