@@ -23,10 +23,13 @@ class Message:
     raw_sub_type: int
     attachment_path: Optional[str]
     source_db: str
+    attachment_exists: Optional[bool] = None
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d["timestamp"] = self.timestamp.isoformat()
+        if self.attachment_exists is None:
+            d.pop("attachment_exists", None)
         return d
 
 
