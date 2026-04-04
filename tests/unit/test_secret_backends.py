@@ -105,3 +105,47 @@ class TestMacosKeychainBackend:
             ciphertext = backend.protect(plaintext, scope="keystore:wechat:wxid_test")
             recovered = backend.unprotect(ciphertext, scope="keystore:wechat:wxid_test")
             assert recovered == plaintext
+
+
+# ---------------------------------------------------------------------------
+# Linux Secret Service backend
+# ---------------------------------------------------------------------------
+from wxtools.core.secret_backends.linux_secret_service import LinuxSecretServiceBackend  # noqa: E402
+
+
+class TestLinuxSecretServiceBackend:
+    def test_implements_protocol(self):
+        backend = LinuxSecretServiceBackend()
+        assert isinstance(backend, SecretBackend)
+
+    def test_name(self):
+        assert LinuxSecretServiceBackend().name == "linux-secret-service"
+
+    def test_is_available_false_on_non_linux(self):
+        with patch("sys.platform", "win32"):
+            assert LinuxSecretServiceBackend().is_available() is False
+
+    def test_roundtrip_mocked(self):
+        backend = LinuxSecretServiceBackend()
+        stored: dict[tuple, bytes] = {}
+
+        def mock_store(label, attributes, secret_bytes):
+            key = tuple(sorted(attributes.items()))
+            stored[key] = secret_bytes
+
+        def mock_retrieve(attributes):
+            key = tuple(sorted(attributes.items()))
+            return stored.get(key)
+
+        def mock_delete(attributes):
+            key = tuple(sorted(attributes.items()))
+            stored.pop(key, None)
+
+        with patch.object(backend, "_store_secret", side_effect=mock_store), \
+             patch.object(backend, "_retrieve_secret", side_effect=mock_retrieve), \
+             patch.object(backend, "_delete_secret", side_effect=mock_delete), \
+             patch.object(backend, "is_available", return_value=True):
+            plaintext = b"linux secret service test"
+            ciphertext = backend.protect(plaintext, scope="keystore:wechat:wxid_test")
+            recovered = backend.unprotect(ciphertext, scope="keystore:wechat:wxid_test")
+            assert recovered == plaintext
