@@ -1,8 +1,28 @@
 """Shared test fixtures for wxtools."""
 
 import sqlite3
+import sys
 
 import pytest
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "windows_only: test requires Windows")
+    config.addinivalue_line("markers", "macos_only: test requires macOS")
+    config.addinivalue_line("markers", "linux_only: test requires Linux")
+
+
+def pytest_collection_modifyitems(config, items):
+    skip_windows = pytest.mark.skip(reason="requires Windows")
+    skip_macos = pytest.mark.skip(reason="requires macOS")
+    skip_linux = pytest.mark.skip(reason="requires Linux")
+    for item in items:
+        if "windows_only" in item.keywords and sys.platform != "win32":
+            item.add_marker(skip_windows)
+        if "macos_only" in item.keywords and sys.platform != "darwin":
+            item.add_marker(skip_macos)
+        if "linux_only" in item.keywords and sys.platform != "linux":
+            item.add_marker(skip_linux)
 
 
 @pytest.fixture

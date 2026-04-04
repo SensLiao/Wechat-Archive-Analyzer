@@ -11,10 +11,13 @@ permissions:
 
 jobs:
   lint-and-test:
-    runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12"]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -47,19 +50,15 @@ jobs:
 
       - name: Workspace secret scan
         run: |
-          # Scan for potential secrets in tracked files
           FOUND=0
-          # Real wxid (not placeholder xxx or synthetic test ids)
           if git grep -nE 'wxid_[a-zA-Z0-9]{10,}' -- ':!tests/' ':!*.md' ':!*skill_template*'; then
             echo "::error::Possible real wxid found in source"
             FOUND=1
           fi
-          # 64-char hex keys (not in test files)
           if git grep -nE '[0-9a-fA-F]{64}' -- ':!tests/' ':!*.md'; then
             echo "::error::Possible hex key found in source"
             FOUND=1
           fi
-          # Hardcoded absolute user paths (not templates)
           if git grep -nE 'C:\\Users\\[^<][^"]*\\(xwechat|WeChat)' -- ':!*.md' ':!tests/'; then
             echo "::error::Hardcoded user path found in source"
             FOUND=1
