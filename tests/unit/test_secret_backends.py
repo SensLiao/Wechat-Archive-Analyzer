@@ -149,3 +149,42 @@ class TestLinuxSecretServiceBackend:
             ciphertext = backend.protect(plaintext, scope="keystore:wechat:wxid_test")
             recovered = backend.unprotect(ciphertext, scope="keystore:wechat:wxid_test")
             assert recovered == plaintext
+
+
+# ---------------------------------------------------------------------------
+# Backend factory
+# ---------------------------------------------------------------------------
+from wxtools.core.secret_backends import get_backend, list_backends  # noqa: E402
+
+
+class TestBackendFactory:
+    def test_get_password_file_backend(self):
+        backend = get_backend("password-file", password="testpass")
+        assert backend.name == "password-file"
+
+    def test_get_windows_dpapi_backend(self):
+        backend = get_backend("windows-dpapi")
+        assert backend.name == "windows-dpapi"
+
+    def test_get_macos_keychain_backend(self):
+        backend = get_backend("macos-keychain")
+        assert backend.name == "macos-keychain"
+
+    def test_get_linux_secret_service_backend(self):
+        backend = get_backend("linux-secret-service")
+        assert backend.name == "linux-secret-service"
+
+    def test_unknown_backend_raises(self):
+        with pytest.raises(ValueError, match="Unknown"):
+            get_backend("nonexistent")
+
+    def test_list_backends_returns_all(self):
+        names = list_backends()
+        assert "windows-dpapi" in names
+        assert "password-file" in names
+        assert "macos-keychain" in names
+        assert "linux-secret-service" in names
+
+    def test_get_auto_selects_platform_default(self):
+        backend = get_backend("auto")
+        assert backend.name in ("windows-dpapi", "macos-keychain", "linux-secret-service")
