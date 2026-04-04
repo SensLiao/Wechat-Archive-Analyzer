@@ -16,8 +16,9 @@ import os
 import shutil
 import struct
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from wxtools.core.errors import DbDecryptFailedError, DbNotFoundError
 
@@ -114,6 +115,8 @@ class Decryptor:
         keys = _parse_key_data(key_data, source_dir)
 
         decrypted: List[Path] = []
+        db_meta_entries: List[Dict[str, Any]] = []
+
         for rel_path, key_hex in keys.items():
             source_db = source_dir / rel_path
             if not source_db.exists():
@@ -128,11 +131,16 @@ class Decryptor:
                 try:
                     self._snapshot_and_decrypt(source_db, cache_db, key_hex)
                     decrypted.append(cache_db)
+                    db_meta_entries.append(_build_db_meta(rel_path, source_db))
                 except Exception:
                     logger.exception("Failed to decrypt %s", rel_path)
             else:
                 logger.info("Cache up-to-date: %s", rel_path)
                 decrypted.append(cache_db)
+                db_meta_entries.append(_build_db_meta(rel_path, source_db))
+
+        # Write cache metadata
+        _write_cache_meta(cache_dir, db_meta_entries)
 
         return decrypted
 
@@ -148,6 +156,28 @@ class Decryptor:
             dest_tmp = dest.with_suffix(".tmp")
             shutil.move(str(tmp_dest), str(dest_tmp))
             os.replace(str(dest_tmp), str(dest))
+
+
+def _build_db_meta(rel_path: str, source_db: Path) -> Dict[str, Any]:
+    """Build metadata entry for a single decrypted database."""
+    st = source_db.stat()
+    return {
+        "source": rel_path,
+        "source_mtime": datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat(),
+        "size_bytes": st.st_size,
+        "decrypted_at": datetime.now(tz=timezone.utc).isoformat(),
+    }
+
+
+def _write_cache_meta(cache_dir: Path, db_entries: List[Dict[str, Any]]) -> None:
+    """Write .cache_meta.json to the cache directory."""
+    meta = {
+        "version": 1,
+        "decrypted_at": datetime.now(tz=timezone.utc).isoformat(),
+        "databases": db_entries,
+    }
+    meta_path = cache_dir / ".cache_meta.json"
+    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def _parse_key_data(key_data: str, source_dir: Path) -> Dict[str, str]:
