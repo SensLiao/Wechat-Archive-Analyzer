@@ -16,7 +16,7 @@ DEFAULTS: Dict[str, Any] = {
     "log_level": "WARNING",
     "default_limit": 100,
     "query_timeout": 30,
-    "keystore_protection": "dpapi",
+    "keystore_protection": "auto",
     "output_language": "zh",
 }
 

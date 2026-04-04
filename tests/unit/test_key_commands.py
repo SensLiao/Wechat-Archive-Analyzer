@@ -99,7 +99,12 @@ class TestKeySet:
              patch("wxtools.cli.commands.key._resolve_account", return_value="wxid_test"):
             cfg = MagicMock()
             cfg.keys_dir = keys_dir
-            cfg.get.return_value = str(db_dir)
+
+            def _cfg_get(key, default=None):
+                if key == "keystore_protection":
+                    return "auto"
+                return str(db_dir)
+            cfg.get.side_effect = _cfg_get
             mock_cfg.return_value = cfg
 
             # Input: no password protection
@@ -126,3 +131,24 @@ class TestKeySet:
 
             result = runner.invoke(cli, ["key", "set", "--account", "wxid_test", "not_hex"])
             assert result.exit_code != 0
+
+
+class TestKeyExtractPlatformGuard:
+    def test_extract_non_windows_shows_platform_error(self, tmp_path):
+        keys_dir = tmp_path / ".wxtools" / "keys"
+        keys_dir.mkdir(parents=True)
+        (tmp_path / ".wxtools" / "cache").mkdir(parents=True)
+        (tmp_path / ".wxtools" / "logs").mkdir(parents=True)
+
+        runner = CliRunner()
+        with patch("wxtools.cli.commands.key.load_config") as mock_cfg, \
+             patch("wxtools.cli.commands.key._resolve_account", return_value="wxid_test"), \
+             patch("wxtools.cli.commands.key.sys") as mock_sys:
+            mock_sys.platform = "linux"
+            cfg = MagicMock()
+            cfg.keys_dir = keys_dir
+            mock_cfg.return_value = cfg
+
+            result = runner.invoke(cli, ["key", "extract"])
+            assert result.exit_code != 0
+            assert "key set" in result.output or "key import" in result.output

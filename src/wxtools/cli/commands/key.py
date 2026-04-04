@@ -69,6 +69,22 @@ def extract(ctx, account):
     """Extract key from running WeChat process."""
     cfg, ks, state = _get_config_and_keystore(ctx)
 
+    if sys.platform != "win32":
+        msg = (
+            "Key extraction from WeChat process memory is only supported on Windows.\n"
+            "On this platform, use 'wxtools key set <hex-or-json>' to import a known key."
+        )
+        if state.json_mode:
+            print_json(error_envelope(
+                "PLATFORM_NOT_SUPPORTED", msg,
+                "Use 'wxtools key set' to import an already-extracted key.",
+                command="key extract",
+            ))
+        else:
+            click.echo(f"Error: {msg}", err=True)
+        ctx.exit(6)
+        return
+
     try:
         from wxtools.plugins.wechat.key_extractor import extract_keys
         from wxtools.plugins.wechat.account_discovery import (
@@ -108,11 +124,11 @@ def extract(ctx, account):
         key_data = json.dumps(keys)
 
         # Determine protection mode
-        config_protection = cfg.get("keystore_protection", "dpapi")
+        config_protection = cfg.get("keystore_protection", "auto")
         is_first_time = not ks.has_key("wechat", wxid)
         password = None
 
-        if config_protection != "dpapi":
+        if config_protection != "auto":
             # Config explicitly sets non-default protection — respect it
             protection = config_protection
         elif is_first_time and not state.json_mode:
@@ -127,16 +143,16 @@ def extract(ctx, account):
                 password = click.prompt(
                     "Password", hide_input=True, confirmation_prompt=True
                 )
-                protection = "password"
+                protection = "password-file"
             else:
-                protection = "dpapi"
+                protection = "windows-dpapi"
         else:
-            # JSON mode or re-extraction: keep dpapi default
-            protection = "dpapi"
+            # JSON mode or re-extraction: keep platform default
+            protection = "auto"
 
         ks.store_key(
             "wechat", wxid, key_data.encode("ascii"),
-            protection=protection, password=password,
+            backend_name=protection, password=password,
         )
 
         if state.json_mode:
@@ -394,33 +410,43 @@ def set_key(ctx, key_input, account):
         if not state.json_mode:
             click.echo("警告: 未找到数据库目录，跳过验证。")
 
-    # Ask about password protection (interactive only)
-    protection = "dpapi"
+    # Determine protection backend
+    protection = "auto"
     password = None
     if not state.json_mode:
-        wants_password = click.confirm("是否使用密码保护密钥?", default=False)
-        if wants_password:
-            password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
-            protection = "password"
-            ttl_choices = {"1": "30m", "2": "1h", "3": "2h", "4": "24h"}
-            click.echo("选择密码缓存时长:")
-            click.echo("  1) 30分钟")
-            click.echo("  2) 1小时")
-            click.echo("  3) 2小时")
-            click.echo("  4) 24小时")
-            ttl_choice = click.prompt("选择", default="2", type=click.Choice(["1", "2", "3", "4"]))
-            # TTL stored in metadata for session management
-            _ttl_value = ttl_choices[ttl_choice]
+        config_protection = cfg.get("keystore_protection", "auto")
+        if config_protection != "auto":
+            protection = config_protection
         else:
-            if sys.platform != "win32":
-                click.echo("非 Windows 系统必须使用密码保护。")
-                password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
-                protection = "password"
+            from wxtools.core.platform import get_default_backend_name
+            default_backend = get_default_backend_name()
+            if default_backend == "windows-dpapi":
+                wants_password = click.confirm("是否使用密码保护密钥?", default=False)
+                if wants_password:
+                    password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
+                    protection = "password-file"
+                else:
+                    protection = "windows-dpapi"
+            else:
+                # Non-Windows: try system keychain, fallback to password
+                from wxtools.core.secret_backends import get_backend
+                try:
+                    backend = get_backend(default_backend)
+                    if backend.is_available():
+                        protection = default_backend
+                        click.echo(f"将使用 {default_backend} 保护密钥。")
+                    else:
+                        raise OSError("not available")
+                except (OSError, Exception):
+                    click.echo("系统密钥存储不可用，将使用密码保护。")
+                    password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
+                    protection = "password-file"
 
     # Store key
     key_bytes = key_data.encode("ascii")
     try:
-        ks.store_key("wechat", wxid, key_bytes, protection=protection, password=password)
+        ks.store_key("wechat", wxid, key_bytes,
+                      backend_name=protection, password=password)
 
         if state.json_mode:
             print_json(success_envelope(
@@ -534,19 +560,27 @@ def remove_password(ctx, account):
         current_password = click.prompt("Current password", hide_input=True)
         raw_key = ks.get_key("wechat", wxid, password=current_password)
 
-        if sys.platform != "win32":
+        from wxtools.core.platform import get_default_backend_name
+        from wxtools.core.secret_backends import get_backend as _get_backend
+        default_backend = get_default_backend_name()
+        try:
+            backend = _get_backend(default_backend)
+            if not backend.is_available() or default_backend == "password-file":
+                raise OSError("no system backend")
+        except (OSError, Exception):
             if state.json_mode:
                 print_json(error_envelope(
-                    "CONFIG_ERROR", "DPAPI only available on Windows.",
-                    "Use password protection on non-Windows platforms.",
+                    "CONFIG_ERROR",
+                    "No system secret backend available on this platform.",
+                    "Password protection is required on this platform.",
                     command="key remove-password",
                 ))
             else:
-                click.echo("Error: DPAPI only available on Windows.", err=True)
+                click.echo("错误: 当前平台无系统密钥存储，无法移除密码保护。", err=True)
             ctx.exit(6)
             return
 
-        ks.store_key("wechat", wxid, raw_key, protection="dpapi")
+        ks.store_key("wechat", wxid, raw_key, backend_name=default_backend)
 
         if state.json_mode:
             print_json(success_envelope(

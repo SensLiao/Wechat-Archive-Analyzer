@@ -6,7 +6,7 @@ def test_default_config_values():
     assert cfg.get("default_limit") == 100
     assert cfg.get("log_level") == "WARNING"
     assert cfg.get("query_timeout") == 30
-    assert cfg.get("keystore_protection") == "dpapi"
+    assert cfg.get("keystore_protection") == "auto"
 
 
 def test_config_from_dict():
