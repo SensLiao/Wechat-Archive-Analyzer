@@ -121,10 +121,12 @@ def _resolve_account_and_reader(cfg, account_arg, json_mode: bool = False):
 @click.option("--offset", type=int, default=0, help="Pagination offset.")
 @click.option("--sql", help="Raw SQL query (debug mode).")
 @click.option("--account", help="Select account wxid.")
+@click.option("--surface", type=click.Choice(["chat", "public", "moments", "all"], case_sensitive=False),
+              default="chat", help="Data surface: chat, public (公众号), moments (朋友圈), or all.")
 @click.option("--attachments", type=click.Choice(["path", "check"]),
               default=None, help="Attachment handling: path=resolve paths, check=verify existence.")
 @click.pass_context
-def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limit, offset, sql, account, attachments):
+def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limit, offset, sql, account, surface, attachments):
     """Search messages in decrypted WeChat databases."""
     state = ctx.obj
     cfg = load_config()
@@ -167,6 +169,7 @@ def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limi
             msg_type=msg_type,
             limit=limit,
             offset=offset,
+            surface=surface,
         )
 
         result = reader.search(keyword=keyword, filters=msg_filter)

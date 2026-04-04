@@ -7,6 +7,9 @@ from datetime import datetime
 from typing import List, Optional
 
 
+VALID_SURFACES = ("chat", "public", "moments")
+
+
 @dataclass
 class Message:
     id: str
@@ -23,6 +26,7 @@ class Message:
     raw_sub_type: int
     attachment_path: Optional[str]
     source_db: str
+    surface: str = "chat"
     attachment_exists: Optional[bool] = None
 
     def to_dict(self) -> dict:
@@ -68,6 +72,7 @@ class MessageFilter:
     offset: int = 0
     sql: Optional[str] = None
     account: Optional[str] = None
+    surface: str = "chat"
 
 
 @dataclass

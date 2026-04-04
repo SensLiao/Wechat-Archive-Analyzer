@@ -37,10 +37,12 @@ WRITERS = {"json": JsonWriter, "csv": CsvWriter, "html": HtmlWriter}
 @click.option("--limit", type=int, help="Max messages.")
 @click.option("--account", help="Select account.")
 @click.option("--yes", is_flag=True, help="Skip confirmation for large exports.")
+@click.option("--surface", type=click.Choice(["chat", "public", "moments", "all"], case_sensitive=False),
+              default="chat", help="Data surface: chat, public (公众号), moments (朋友圈), or all.")
 @click.option("--attachments", type=click.Choice(["path", "check", "copy"]),
               default=None, help="Attachment handling: path=resolve, check=verify, copy=copy to export dir.")
 @click.pass_context
-def export(ctx, fmt, output_path, contact, conversation, since, until_date, limit, account, yes, attachments):
+def export(ctx, fmt, output_path, contact, conversation, since, until_date, limit, account, yes, surface, attachments):
     """Export messages to file."""
     state = ctx.obj
     cfg = load_config()
@@ -67,6 +69,7 @@ def export(ctx, fmt, output_path, contact, conversation, since, until_date, limi
             until=until_dt,
             limit=limit or 1000000,
             offset=0,
+            surface=surface,
         )
 
         # Count for confirmation

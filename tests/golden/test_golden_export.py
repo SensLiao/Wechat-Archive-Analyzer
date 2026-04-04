@@ -41,6 +41,7 @@ def test_golden_json(tmp_path):
     assert data["messages"][1]["content"] == "收到！"
     assert data["messages"][0]["sender_name"] == "小明"
     assert data["messages"][1]["is_self"] is True
+    assert data["messages"][0]["surface"] == "chat"
 
 
 def test_golden_csv(tmp_path):
@@ -51,9 +52,10 @@ def test_golden_csv(tmp_path):
     csv_file = tmp_path / "csv_export" / "测试会话.csv"
     assert csv_file.exists()
     rows = list(csv.reader(csv_file.read_text("utf-8-sig").splitlines()))
-    assert rows[0] == ["timestamp", "sender", "conversation", "type", "content", "attachment_path"]
+    assert rows[0] == ["timestamp", "sender", "conversation", "type", "surface", "content", "attachment_path"]
     assert rows[1][1] == "小明"
-    assert rows[1][4] == "你好，这是一条测试消息"
+    assert rows[1][4] == "chat"  # surface column
+    assert rows[1][5] == "你好，这是一条测试消息"
     assert rows[2][1] == "我"
 
 

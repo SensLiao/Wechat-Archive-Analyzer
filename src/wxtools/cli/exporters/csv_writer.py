@@ -14,7 +14,7 @@ from wxtools.core.schema import Message
 
 _ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
-_CSV_HEADER = ["timestamp", "sender", "conversation", "type", "content", "attachment_path"]
+_CSV_HEADER = ["timestamp", "sender", "conversation", "type", "surface", "content", "attachment_path"]
 
 
 def _sanitize_filename(name: str, max_len: int = 200) -> str:
@@ -117,6 +117,7 @@ class CsvWriter:
                     msg.sender_name,
                     msg.conversation_title,
                     msg.type,
+                    msg.surface,
                     msg.content,
                     msg.attachment_path or "",
                 ])
