@@ -13,22 +13,10 @@ WXID_PATTERN = re.compile(r"^wxid_[a-zA-Z0-9]+$")
 
 
 def find_wechat_data_dir(home_dir: Optional[Path] = None) -> Optional[Path]:
-    """Auto-discover WeChat data root. Checks 4.x path first, then 3.x."""
-    if home_dir is None:
-        home_dir = Path.home()
-    # WeChat 4.x: directly under user home (not Documents)
-    xwechat = home_dir / "xwechat_files"
-    if xwechat.is_dir():
-        return xwechat
-    # Also check Documents for some installations
-    docs_xwechat = home_dir / "Documents" / "xwechat_files"
-    if docs_xwechat.is_dir():
-        return docs_xwechat
-    # WeChat 3.x fallback
-    wechat3 = home_dir / "Documents" / "WeChat Files"
-    if wechat3.is_dir():
-        return wechat3
-    return None
+    """Auto-discover WeChat data root. Delegates to platform-specific adapter."""
+    from wxtools.plugins.wechat.path_discovery import discover_data_dir
+
+    return discover_data_dir(home_dir=home_dir)
 
 
 def _extract_wxid(dirname: str) -> Optional[str]:
