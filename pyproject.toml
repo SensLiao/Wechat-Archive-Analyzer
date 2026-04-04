@@ -20,7 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 fast = ["pysqlcipher3>=1.2"]
-dev = ["pytest>=7.0", "ruff>=0.4"]
+dev = ["pytest>=7.0", "ruff>=0.4", "pycryptodome>=3.19"]
 
 [project.scripts]
 wxtools = "wxtools.cli.main:cli"
