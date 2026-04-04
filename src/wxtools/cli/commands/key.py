@@ -22,6 +22,7 @@ from wxtools.core.errors import (
     WxToolsError,
 )
 from wxtools.core.keystore import Keystore
+from wxtools.core.unlock_session import UnlockSession
 from wxtools.plugins.wechat.key_validator import validate_key_for_account
 
 logger = logging.getLogger("wxtools.cli.key")
@@ -473,9 +474,23 @@ def set_password(ctx, account):
         new_password = click.prompt("New password", hide_input=True, confirmation_prompt=True)
         ks.store_key("wechat", wxid, raw_key, protection="password", password=new_password)
 
+        # TTL selection
+        if not state.json_mode:
+            click.echo("\n请选择密码有效时长（输入数字）：")
+            click.echo("  1) 30分钟")
+            click.echo("  2) 1小时")
+            click.echo("  3) 2小时（推荐）")
+            click.echo("  4) 24小时")
+            ttl_choice = click.prompt("选择", type=int, default=3)
+            ttl_map = {1: 30, 2: 60, 3: 120, 4: 1440}
+            ttl_minutes = ttl_map.get(ttl_choice, 120)
+        else:
+            ttl_minutes = 120
+        ks.update_metadata("wechat", wxid, {"session_ttl_minutes": ttl_minutes})
+
         if state.json_mode:
             print_json(success_envelope(
-                {"account": wxid, "protection": "password"},
+                {"account": wxid, "protection": "password", "session_ttl_minutes": ttl_minutes},
                 command="key set-password",
             ))
         else:
@@ -553,3 +568,150 @@ def remove_password(ctx, account):
         else:
             click.echo(f"Error: {e.message}", err=True)
         ctx.exit(1)
+
+
+@key.command()
+@click.option("--account", help="Target account wxid.")
+@click.pass_context
+def unlock(ctx, account):
+    """Unlock key for session (cache decrypted key temporarily)."""
+    cfg, ks, state = _get_config_and_keystore(ctx)
+    wxid = _resolve_account(cfg, account)
+
+    if not wxid:
+        if state.json_mode:
+            print_json(error_envelope(
+                "ACCOUNT_NOT_FOUND", "未指定或未发现账号。",
+                "使用 --account 或配置 active_account。",
+                command="key unlock",
+            ))
+        else:
+            click.echo("错误: 未找到账号。使用 --account 指定。", err=True)
+        ctx.exit(7)
+        return
+
+    if not ks.has_key("wechat", wxid):
+        if state.json_mode:
+            print_json(error_envelope(
+                "KEY_NOT_FOUND", f"未找到账号 {wxid} 的密钥。",
+                "请先运行 wxtools key extract 提取密钥。",
+                command="key unlock",
+            ))
+        else:
+            click.echo(f"错误: 未找到账号 {wxid} 的密钥。请先运行 wxtools key extract。", err=True)
+        ctx.exit(1)
+        return
+
+    session = UnlockSession(cfg.session_dir)
+
+    # Check if already unlocked
+    existing = session.get_key("wechat", wxid)
+    if existing is not None:
+        if state.json_mode:
+            print_json(success_envelope(
+                {"account": wxid, "status": "already_unlocked"},
+                command="key unlock",
+            ))
+        else:
+            click.echo("已处于登录状态，无需重复操作。")
+        return
+
+    try:
+        # Try direct DPAPI first (no password needed)
+        try:
+            raw_key = ks.get_key("wechat", wxid)
+        except KeyPasswordWrongError:
+            # Need password
+            if state.json_mode:
+                password = os.environ.get("WXTOOLS_PASSWORD")
+                if not password:
+                    print_json(error_envelope(
+                        "KEY_PASSWORD_WRONG", "需要密码。",
+                        "设置 WXTOOLS_PASSWORD 环境变量。",
+                        command="key unlock",
+                    ))
+                    ctx.exit(1)
+                    return
+            else:
+                password = click.prompt("请输入密码", hide_input=True)
+            raw_key = ks.get_key("wechat", wxid, password=password)
+
+        # Read TTL from metadata
+        meta_path = ks._meta_path("wechat", wxid)
+        ttl_minutes = 120
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text("utf-8"))
+                ttl_minutes = meta.get("session_ttl_minutes", 120)
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        session.create("wechat", wxid, raw_key, ttl_minutes=ttl_minutes)
+
+        hours = ttl_minutes / 60
+        if state.json_mode:
+            print_json(success_envelope(
+                {"account": wxid, "status": "unlocked", "ttl_minutes": ttl_minutes},
+                command="key unlock",
+            ))
+        else:
+            if hours == int(hours):
+                click.echo(f"已登录，{int(hours)}小时内无需重复输入密码。")
+            else:
+                click.echo(f"已登录，{ttl_minutes}分钟内无需重复输入密码。")
+
+    except KeyNotFoundError as e:
+        if state.json_mode:
+            print_json(error_envelope(e.code, e.message, e.remediation, command="key unlock"))
+        else:
+            click.echo(f"错误: {e.message}", err=True)
+        ctx.exit(1)
+    except KeyPasswordWrongError as e:
+        if state.json_mode:
+            print_json(error_envelope(e.code, e.message, e.remediation, command="key unlock"))
+        else:
+            click.echo("错误: 密码错误。", err=True)
+        ctx.exit(1)
+
+
+@key.command()
+@click.option("--account", help="Target account wxid.")
+@click.option("--all", "clear_all", is_flag=True, help="Clear all sessions.")
+@click.pass_context
+def lock(ctx, account, clear_all):
+    """Lock session (clear cached key)."""
+    cfg, ks, state = _get_config_and_keystore(ctx)
+    session = UnlockSession(cfg.session_dir)
+
+    if clear_all:
+        session.clear_all()
+        if state.json_mode:
+            print_json(success_envelope(
+                {"status": "all_sessions_cleared"},
+                command="key lock",
+            ))
+        else:
+            click.echo("已退出所有登录。")
+        return
+
+    wxid = _resolve_account(cfg, account)
+    if not wxid:
+        if state.json_mode:
+            print_json(error_envelope(
+                "ACCOUNT_NOT_FOUND", "未指定或未发现账号。",
+                "使用 --account 或 --all。",
+                command="key lock",
+            ))
+        else:
+            click.echo("错误: 未找到账号。使用 --account 指定或 --all 退出所有。", err=True)
+        ctx.exit(7)
+        return
+
+    session.clear("wechat", wxid)
+    if state.json_mode:
+        print_json(success_envelope(
+            {"account": wxid, "status": "locked"},
+            command="key lock",
+        ))
+    else:
+        click.echo("已退出登录。")
