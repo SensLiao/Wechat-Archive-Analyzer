@@ -28,14 +28,29 @@ class DbReader:
         if not contact_db.exists() and not micromsg.exists():
             raise CacheEmptyError()
 
-    def _msg_shards(self) -> List[Path]:
-        """Find all message DB shards."""
-        # WeChat 4.x: message/message_N.db
+    def _msg_shards(self, surface: str = "chat") -> List[Path]:
+        """Find message DB shards for the given surface.
+
+        surface: "chat" (regular messages), "public" (biz/official accounts),
+                 "all" (both), or "moments" (empty — sns uses separate reader).
+        """
         msg_dir = self._cache_dir / "message"
-        if msg_dir.is_dir():
-            return sorted(msg_dir.glob("message_*.db"))
-        # WeChat 3.x fallback
-        return sorted(self._cache_dir.glob("MSG*.db"))
+        shards: List[Path] = []
+
+        if surface in ("chat", "all"):
+            # WeChat 4.x: message/message_N.db
+            if msg_dir.is_dir():
+                shards.extend(sorted(msg_dir.glob("message_*.db")))
+            else:
+                # WeChat 3.x fallback
+                shards.extend(sorted(self._cache_dir.glob("MSG*.db")))
+
+        if surface in ("public", "all"):
+            # WeChat 4.x: message/biz_message_N.db
+            if msg_dir.is_dir():
+                shards.extend(sorted(msg_dir.glob("biz_message_*.db")))
+
+        return shards
 
     def _connect(self, db_path: Path) -> sqlite3.Connection:
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
@@ -130,8 +145,9 @@ class DbReader:
 
         contacts = self._load_contacts()
         all_messages: List[Message] = []
+        surface = getattr(filters, "surface", "chat")
 
-        for shard in self._msg_shards():
+        for shard in self._msg_shards(surface):
             name2id = self._load_name2id(shard)
             conn = self._connect(shard)
             try:
@@ -242,6 +258,7 @@ class DbReader:
                                 sender_wxid=sender_wxid,
                                 conversation_id=conv_wxid,
                                 conversation_title=conv_title,
+                                surface=self._surface_for_shard(shard.name),
                             )
                             all_messages.append(msg)
                     except sqlite3.OperationalError:
@@ -338,6 +355,13 @@ class DbReader:
 
         return where_clauses, params
 
+    @staticmethod
+    def _surface_for_shard(shard_name: str) -> str:
+        """Determine the surface based on the shard filename."""
+        if shard_name.startswith("biz_message"):
+            return "public"
+        return "chat"
+
     def _iter_all_tables(
         self, filters: MessageFilter
     ) -> Generator[
@@ -347,8 +371,9 @@ class DbReader:
 
         Caller is responsible for closing connections when done.
         """
+        surface = getattr(filters, "surface", "chat")
         contacts = self._load_contacts()
-        for shard in self._msg_shards():
+        for shard in self._msg_shards(surface):
             name2id = self._load_name2id(shard)
             conn = self._connect(shard)
             try:
@@ -428,6 +453,7 @@ class DbReader:
                         sender_wxid=sender_wxid,
                         conversation_id=conv_wxid,
                         conversation_title=conv_title,
+                        surface=self._surface_for_shard(db_name),
                     )
                     all_messages.append(msg)
             except sqlite3.OperationalError:
@@ -503,6 +529,7 @@ class DbReader:
                         sender_wxid=sender_wxid,
                         conversation_id=conv_wxid,
                         conversation_title=conv_title,
+                        surface=self._surface_for_shard(db_name),
                     )
                     all_messages.append(msg)
             except sqlite3.OperationalError:

@@ -49,6 +49,7 @@ def row_to_message(
     sender_wxid: str = "",
     conversation_id: str = "",
     conversation_title: str = "",
+    surface: str = "chat",
 ) -> Message:
     # WeChat 4.x uses local_type; 3.x uses Type
     raw_type = row.get("local_type", row.get("Type", 0))
@@ -101,6 +102,7 @@ def row_to_message(
         raw_sub_type=raw_sub_type,
         attachment_path=None,
         source_db=db_name,
+        surface=surface,
     )
 
 

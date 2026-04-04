@@ -1,4 +1,7 @@
+import hashlib
 import sqlite3
+
+from wxtools.core.schema import MessageFilter
 from wxtools.plugins.wechat.db_reader import DbReader
 
 
@@ -110,3 +113,112 @@ def test_resolve_contact(tmp_path):
     contact = reader.resolve_contact("wxid_a")
     assert contact is not None
     assert contact.display_name == "A同学"
+
+
+def _populate_4x_contact(db_path, contacts):
+    """Create a 4.x-style contact DB."""
+    conn = sqlite3.connect(str(db_path))
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS contact ("
+        "username TEXT PRIMARY KEY, nick_name TEXT, alias TEXT, remark TEXT)"
+    )
+    for c in contacts:
+        conn.execute(
+            "INSERT INTO contact (username, nick_name, remark) VALUES (?, ?, ?)",
+            (c["id"], c["nick"], c.get("remark")),
+        )
+    conn.commit()
+    conn.close()
+
+
+def _populate_4x_msg_db(db_path, conv_wxid, messages):
+    """Create a 4.x-style message shard with Msg_<md5(conv_wxid)> table."""
+    table_hash = hashlib.md5(conv_wxid.encode()).hexdigest()
+    table_name = f"Msg_{table_hash}"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute(
+        f'CREATE TABLE IF NOT EXISTS "{table_name}" ('
+        "local_id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "server_id INTEGER, local_type INTEGER, sort_seq INTEGER, "
+        "real_sender_id INTEGER, create_time INTEGER, status INTEGER, "
+        "upload_status INTEGER, download_status INTEGER, server_seq INTEGER, "
+        "origin_source INTEGER, source TEXT, message_content TEXT, "
+        "compress_content TEXT, packed_info_data BLOB, "
+        "WCDB_CT_message_content INTEGER, WCDB_CT_source INTEGER)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS Name2Id (user_name TEXT, is_session INTEGER)"
+    )
+    # Insert Name2Id entry for the conv_wxid (rowid auto-assigned)
+    conn.execute("INSERT INTO Name2Id (user_name) VALUES (?)", (conv_wxid,))
+    for msg in messages:
+        conn.execute(
+            f'INSERT INTO "{table_name}" '
+            "(server_id, local_type, create_time, real_sender_id, message_content) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (msg["srv_id"], msg.get("type", 1), msg["time"], 1, msg["content"]),
+        )
+    conn.commit()
+    conn.close()
+
+
+def test_public_surface_returns_biz_messages(tmp_path):
+    """biz_message_*.db should be queried when surface='public'."""
+    cache_dir = tmp_path / "cache" / "wxid_test"
+    msg_dir = cache_dir / "message"
+    contact_dir = cache_dir / "contact"
+    msg_dir.mkdir(parents=True)
+    contact_dir.mkdir(parents=True)
+
+    _populate_4x_contact(contact_dir / "contact.db", [
+        {"id": "gh_pub01", "nick": "公众号A"},
+    ])
+    _populate_4x_msg_db(msg_dir / "biz_message_0.db", "gh_pub01", [
+        {"srv_id": 9001, "time": 1711936200, "content": "公众号文章"},
+    ])
+    # Also add regular message shard
+    _populate_4x_msg_db(msg_dir / "message_0.db", "wxid_friend", [
+        {"srv_id": 9002, "time": 1711936200, "content": "普通消息"},
+    ])
+
+    reader = DbReader("wxid_test", str(tmp_path / "cache"))
+
+    # surface=public should only return biz messages
+    result = reader.search(filters=MessageFilter(surface="public"))
+    assert len(result.messages) == 1
+    assert result.messages[0].content == "公众号文章"
+    assert result.messages[0].surface == "public"
+
+    # surface=chat should only return regular messages
+    result = reader.search(filters=MessageFilter(surface="chat"))
+    assert len(result.messages) == 1
+    assert result.messages[0].content == "普通消息"
+    assert result.messages[0].surface == "chat"
+
+    # surface=all should return both
+    result = reader.search(filters=MessageFilter(surface="all"))
+    assert len(result.messages) == 2
+
+
+def test_default_surface_is_chat(tmp_path):
+    """Default search (no surface) should only query regular message shards."""
+    cache_dir = tmp_path / "cache" / "wxid_test"
+    msg_dir = cache_dir / "message"
+    contact_dir = cache_dir / "contact"
+    msg_dir.mkdir(parents=True)
+    contact_dir.mkdir(parents=True)
+
+    _populate_4x_contact(contact_dir / "contact.db", [
+        {"id": "gh_pub01", "nick": "公众号A"},
+    ])
+    _populate_4x_msg_db(msg_dir / "biz_message_0.db", "gh_pub01", [
+        {"srv_id": 8001, "time": 1711936200, "content": "biz only"},
+    ])
+    _populate_4x_msg_db(msg_dir / "message_0.db", "wxid_friend", [
+        {"srv_id": 8002, "time": 1711936200, "content": "chat only"},
+    ])
+
+    reader = DbReader("wxid_test", str(tmp_path / "cache"))
+    result = reader.search()  # no surface → default "chat"
+    assert len(result.messages) == 1
+    assert result.messages[0].content == "chat only"
