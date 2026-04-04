@@ -12,7 +12,7 @@ from wxtools.cli.output import error_envelope, print_json, success_envelope
 
 logger = logging.getLogger("wxtools.cli.skill")
 
-SKILL_DEST = Path.home() / ".claude" / "skills" / "wechat.md"
+SKILL_DEST = Path.home() / ".claude" / "skills" / "wechat" / "SKILL.md"
 CODEX_SKILL_DEST = Path.home() / ".codex" / "skills" / "wechat.md"
 
 
@@ -139,6 +139,11 @@ def uninstall_skill(ctx, codex: bool):
         _uninstall_codex(ctx, state)
         return
 
+    # Also clean up legacy single-file install
+    legacy_path = SKILL_DEST.parent.parent / "wechat.md"
+    if legacy_path.is_file():
+        legacy_path.unlink()
+
     if not SKILL_DEST.exists():
         if state.json_mode:
             print_json(success_envelope(
@@ -150,6 +155,10 @@ def uninstall_skill(ctx, codex: bool):
         return
 
     SKILL_DEST.unlink()
+    # Remove the wechat/ directory if empty
+    skill_dir = SKILL_DEST.parent
+    if skill_dir.is_dir() and not any(skill_dir.iterdir()):
+        skill_dir.rmdir()
 
     if state.json_mode:
         print_json(success_envelope(
