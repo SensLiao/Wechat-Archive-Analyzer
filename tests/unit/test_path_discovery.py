@@ -1,7 +1,6 @@
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from wxtools.plugins.wechat.path_discovery import discover_data_dir
 from wxtools.plugins.wechat.path_discovery.windows import WindowsPathDiscoverer
