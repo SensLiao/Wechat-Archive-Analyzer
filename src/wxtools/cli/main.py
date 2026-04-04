@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 
 import click
@@ -33,6 +32,17 @@ def cli(ctx: click.Context, json_mode: bool, verbose: int):
     state.json_mode = json_mode
     state.verbosity = verbose
     ctx.obj = state
+
+    # Initialize logging
+    from wxtools.core.config import load_config
+    from wxtools.core.logging_setup import setup_logging
+
+    cfg = load_config()
+    setup_logging(
+        verbosity=verbose,
+        json_mode=json_mode,
+        log_dir=cfg.logs_dir,
+    )
 
 
 # Import and register command groups after cli is defined

@@ -1,7 +1,8 @@
-"""Cross-shard message query and contact resolution."""
+"""Cross-shard message query and contact resolution for WeChat 4.x."""
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,15 +18,24 @@ class DbReader:
         self._account_id = account_id
         self._cache_dir = Path(cache_base) / account_id
         self._contacts_cache: Optional[Dict[str, Contact]] = None
+        self._name2id_cache: Dict[str, Dict[int, str]] = {}
 
     def _ensure_cache_exists(self) -> None:
         if not self._cache_dir.is_dir():
             raise CacheEmptyError()
+        # Check for either 4.x or 3.x layout
+        contact_db = self._cache_dir / "contact" / "contact.db"
         micromsg = self._cache_dir / "MicroMsg.db"
-        if not micromsg.exists():
+        if not contact_db.exists() and not micromsg.exists():
             raise CacheEmptyError()
 
     def _msg_shards(self) -> List[Path]:
+        """Find all message DB shards."""
+        # WeChat 4.x: message/message_N.db
+        msg_dir = self._cache_dir / "message"
+        if msg_dir.is_dir():
+            return sorted(msg_dir.glob("message_*.db"))
+        # WeChat 3.x fallback
         return sorted(self._cache_dir.glob("MSG*.db"))
 
     def _connect(self, db_path: Path) -> sqlite3.Connection:
@@ -33,25 +43,82 @@ class DbReader:
         conn.row_factory = sqlite3.Row
         return conn
 
+    def _load_name2id(self, db_path: Path) -> Dict[int, str]:
+        """Load Name2Id mapping (rowid -> username) from a message DB."""
+        cache_key = str(db_path)
+        if cache_key in self._name2id_cache:
+            return self._name2id_cache[cache_key]
+
+        mapping: Dict[int, str] = {}
+        conn = self._connect(db_path)
+        try:
+            for row in conn.execute("SELECT rowid, user_name FROM Name2Id"):
+                mapping[row["rowid"]] = row["user_name"]
+        except sqlite3.OperationalError:
+            pass
+        finally:
+            conn.close()
+        self._name2id_cache[cache_key] = mapping
+        return mapping
+
     def _load_contacts(self) -> Dict[str, Contact]:
         if self._contacts_cache is not None:
             return self._contacts_cache
-        micromsg = self._cache_dir / "MicroMsg.db"
+
         contacts: Dict[str, Contact] = {}
-        if micromsg.exists():
-            conn = self._connect(micromsg)
+
+        # WeChat 4.x
+        contact_db = self._cache_dir / "contact" / "contact.db"
+        if contact_db.exists():
+            conn = self._connect(contact_db)
             try:
-                for row in conn.execute("SELECT UserName, NickName, Alias, Remark FROM Contact"):
+                for row in conn.execute(
+                    "SELECT username, nick_name, alias, remark FROM contact"
+                ):
                     c = row_to_contact(dict(row))
                     contacts[c.id] = c
             finally:
                 conn.close()
+        else:
+            # WeChat 3.x fallback
+            micromsg = self._cache_dir / "MicroMsg.db"
+            if micromsg.exists():
+                conn = self._connect(micromsg)
+                try:
+                    for row in conn.execute(
+                        "SELECT UserName, NickName, Alias, Remark FROM Contact"
+                    ):
+                        c = row_to_contact(dict(row))
+                        contacts[c.id] = c
+                finally:
+                    conn.close()
+
         self._contacts_cache = contacts
         return contacts
 
     def resolve_contact(self, wxid: str) -> Optional[Contact]:
         contacts = self._load_contacts()
         return contacts.get(wxid)
+
+    def _get_msg_tables(self, conn: sqlite3.Connection) -> List[str]:
+        """Get all message tables from a shard (4.x: Msg_<hash>, 3.x: MSG)."""
+        # WeChat 4.x
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Msg_%'"
+        ).fetchall()
+        tables = [r["name"] for r in rows]
+        if tables:
+            return tables
+        # WeChat 3.x fallback
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = 'MSG'"
+        ).fetchall()
+        return [r["name"] for r in rows]
+
+    def _conversation_wxid_to_table(self, wxid: str) -> str:
+        """Convert a conversation wxid to its MSG_ table name."""
+        h = hashlib.md5(wxid.encode()).hexdigest()
+        return f"Msg_{h}"
 
     def search(
         self,
@@ -66,60 +133,120 @@ class DbReader:
         all_messages: List[Message] = []
 
         for shard in self._msg_shards():
+            name2id = self._load_name2id(shard)
             conn = self._connect(shard)
             try:
-                where_clauses: List[str] = []
-                params: List[Any] = []
-
-                if keyword or filters.keyword:
-                    kw = keyword or filters.keyword
-                    where_clauses.append("StrContent LIKE ?")
-                    params.append(f"%{kw}%")
-                if filters.contact:
-                    matched = [
-                        c for c in contacts.values()
-                        if filters.contact in (c.remark or c.nickname or c.id or "")
-                    ]
-                    if matched:
-                        wxids = [c.id for c in matched]
-                        placeholders = ",".join("?" * len(wxids))
-                        where_clauses.append(f"StrTalker IN ({placeholders})")
-                        params.extend(wxids)
+                # Determine which tables to query
                 if filters.conversation:
-                    where_clauses.append("StrTalker LIKE ?")
-                    params.append(f"%{filters.conversation}%")
-                if filters.since:
-                    ts = int(filters.since.timestamp())
-                    where_clauses.append("CreateTime >= ?")
-                    params.append(ts)
-                if filters.until:
-                    ts = int(filters.until.timestamp())
-                    where_clauses.append("CreateTime <= ?")
-                    params.append(ts)
-                if filters.msg_type:
-                    type_codes = _type_name_to_codes(filters.msg_type)
-                    if type_codes:
-                        placeholders = ",".join("?" * len(type_codes))
-                        where_clauses.append(f"Type IN ({placeholders})")
-                        params.extend(type_codes)
-
-                where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
-                sql = f"SELECT * FROM MSG WHERE {where_sql} ORDER BY CreateTime ASC, MsgSvrID ASC"
-
-                for row in conn.execute(sql, params):
-                    row_dict = dict(row)
-                    talker = row_dict.get("StrTalker", "")
-                    contact = contacts.get(talker)
-                    sender_name = contact.display_name if contact else talker
-                    conv_title = sender_name
-
-                    msg = row_to_message(
-                        row_dict,
-                        db_name=shard.name,
-                        sender_name=sender_name,
-                        conversation_title=conv_title,
+                    # If conversation filter, only check matching tables
+                    target_tables = self._find_conversation_tables(
+                        conn, filters.conversation, contacts, name2id
                     )
-                    all_messages.append(msg)
+                else:
+                    target_tables = self._get_msg_tables(conn)
+
+                for table_name in target_tables:
+                    conv_wxid = self._table_to_conversation(table_name, name2id)
+
+                    # Detect schema version from table name
+                    is_v4 = table_name.startswith("Msg_")
+                    col_content = "message_content" if is_v4 else "StrContent"
+                    col_time = "create_time" if is_v4 else "CreateTime"
+                    col_type = "local_type" if is_v4 else "Type"
+                    col_sender = "real_sender_id" if is_v4 else "StrTalker"
+
+                    where_clauses: List[str] = []
+                    params: List[Any] = []
+
+                    if keyword or filters.keyword:
+                        kw = keyword or filters.keyword
+                        where_clauses.append(f"{col_content} LIKE ?")
+                        params.append(f"%{kw}%")
+
+                    if filters.contact:
+                        if is_v4:
+                            matched_ids = self._resolve_contact_ids(
+                                filters.contact, contacts, name2id
+                            )
+                            if matched_ids:
+                                placeholders = ",".join("?" * len(matched_ids))
+                                where_clauses.append(
+                                    f"{col_sender} IN ({placeholders})"
+                                )
+                                params.extend(matched_ids)
+                        else:
+                            # 3.x: StrTalker is a wxid string
+                            matched_wxids = [
+                                c.id for c in contacts.values()
+                                if filters.contact in (c.display_name or "")
+                            ]
+                            if matched_wxids:
+                                placeholders = ",".join("?" * len(matched_wxids))
+                                where_clauses.append(
+                                    f"{col_sender} IN ({placeholders})"
+                                )
+                                params.extend(matched_wxids)
+
+                    if filters.since:
+                        ts = int(filters.since.timestamp())
+                        where_clauses.append(f"{col_time} >= ?")
+                        params.append(ts)
+                    if filters.until:
+                        ts = int(filters.until.timestamp())
+                        where_clauses.append(f"{col_time} <= ?")
+                        params.append(ts)
+                    if filters.msg_type:
+                        type_codes = _type_name_to_codes(filters.msg_type)
+                        if type_codes:
+                            placeholders = ",".join("?" * len(type_codes))
+                            where_clauses.append(
+                                f"{col_type} IN ({placeholders})"
+                            )
+                            params.extend(type_codes)
+
+                    where_sql = (
+                        " AND ".join(where_clauses) if where_clauses else "1=1"
+                    )
+                    sql = (
+                        f'SELECT * FROM "{table_name}" '
+                        f"WHERE {where_sql} ORDER BY {col_time} ASC"
+                    )
+
+                    try:
+                        for row in conn.execute(sql, params):
+                            row_dict = dict(row)
+
+                            if is_v4:
+                                sender_id = row_dict.get("real_sender_id", 0)
+                                sender_wxid = name2id.get(sender_id, "")
+                            else:
+                                sender_wxid = row_dict.get("StrTalker", "")
+
+                            sender_contact = contacts.get(sender_wxid)
+                            sender_name = (
+                                sender_contact.display_name
+                                if sender_contact
+                                else sender_wxid
+                            )
+
+                            conv_contact = contacts.get(conv_wxid)
+                            conv_title = (
+                                conv_contact.display_name
+                                if conv_contact
+                                else conv_wxid
+                            )
+
+                            msg = row_to_message(
+                                row_dict,
+                                db_name=shard.name,
+                                sender_name=sender_name,
+                                sender_wxid=sender_wxid,
+                                conversation_id=conv_wxid,
+                                conversation_title=conv_title,
+                            )
+                            all_messages.append(msg)
+                    except sqlite3.OperationalError:
+                        continue
             finally:
                 conn.close()
 
@@ -135,7 +262,7 @@ class DbReader:
         total = len(unique)
         offset = filters.offset
         limit = filters.limit
-        page = unique[offset: offset + limit]
+        page = unique[offset : offset + limit]
         has_more = (offset + limit) < total
 
         return QueryResult(
@@ -145,12 +272,67 @@ class DbReader:
             query={
                 "keyword": keyword or filters.keyword,
                 "contact": filters.contact,
+                "conversation": filters.conversation,
                 "limit": limit,
                 "offset": offset,
             },
         )
 
-    def query_sql(self, sql: str, db_name: str = "MSG0.db") -> List[Dict[str, Any]]:
+    def _find_conversation_tables(
+        self,
+        conn: sqlite3.Connection,
+        conversation_filter: str,
+        contacts: Dict[str, Contact],
+        name2id: Dict[int, str],
+    ) -> List[str]:
+        """Find MSG_ tables matching a conversation filter."""
+        all_tables = self._get_msg_tables(conn)
+        # Try exact wxid match first
+        exact_table = self._conversation_wxid_to_table(conversation_filter)
+        if exact_table in all_tables:
+            return [exact_table]
+
+        # Try matching via contact names
+        matched = []
+        for wxid, contact in contacts.items():
+            if conversation_filter.lower() in (contact.display_name or "").lower():
+                table = self._conversation_wxid_to_table(wxid)
+                if table in all_tables:
+                    matched.append(table)
+
+        return matched if matched else all_tables
+
+    def _table_to_conversation(
+        self, table_name: str, name2id: Dict[int, str]
+    ) -> str:
+        """Reverse-lookup: find conversation wxid from table hash."""
+        table_hash = table_name.replace("Msg_", "")
+        for _rowid, wxid in name2id.items():
+            if hashlib.md5(wxid.encode()).hexdigest() == table_hash:
+                return wxid
+        return table_name
+
+    def _resolve_contact_ids(
+        self,
+        contact_filter: str,
+        contacts: Dict[str, Contact],
+        name2id: Dict[int, str],
+    ) -> List[int]:
+        """Find Name2Id rowids matching a contact filter string."""
+        matched_wxids = set()
+        for wxid, contact in contacts.items():
+            if contact_filter.lower() in (contact.display_name or "").lower():
+                matched_wxids.add(wxid)
+        if not matched_wxids:
+            matched_wxids.add(contact_filter)
+
+        result = []
+        for rowid, wxid in name2id.items():
+            if wxid in matched_wxids:
+                result.append(rowid)
+        return result
+
+    def query_sql(self, sql: str, db_name: str = "message/message_0.db") -> List[Dict[str, Any]]:
         self._ensure_cache_exists()
         sql_stripped = sql.strip().upper()
         if not sql_stripped.startswith("SELECT"):

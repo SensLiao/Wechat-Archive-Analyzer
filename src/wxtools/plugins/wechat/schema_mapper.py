@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Dict, Optional, Tuple
 
-from wxtools.core.schema import Message, Contact
+from wxtools.core.schema import Contact, Message
 
 _TYPE_MAP: Dict[Tuple[int, Optional[int]], str] = {
     (1, 0): "text",
@@ -46,29 +46,54 @@ def row_to_message(
     row: dict,
     db_name: str,
     sender_name: str = "",
+    sender_wxid: str = "",
+    conversation_id: str = "",
     conversation_title: str = "",
 ) -> Message:
-    raw_type = row.get("Type", 0)
-    raw_sub_type = row.get("SubType", 0)
+    # WeChat 4.x uses local_type; 3.x uses Type
+    raw_type = row.get("local_type", row.get("Type", 0))
+    # Handle combined type values (e.g., 21474836529 = high bits + low bits)
+    if raw_type > 0xFFFF:
+        raw_sub_type = (raw_type >> 16) & 0xFFFF
+        raw_type = raw_type & 0xFFFF
+    else:
+        raw_sub_type = row.get("SubType", 0)
     msg_type = map_message_type(raw_type, raw_sub_type)
 
-    content = row.get("StrContent", "") or ""
-    display = row.get("DisplayContent", "") or ""
+    # WeChat 4.x uses message_content; 3.x uses StrContent
+    content = row.get("message_content", row.get("StrContent", ""))
+    if isinstance(content, bytes):
+        content = ""  # Compressed content, skip for now
+    content = content or ""
 
+    display = row.get("DisplayContent", "") or ""
     if msg_type in ("system", "revoked") and display:
         content = display
 
-    create_time = row.get("CreateTime", 0)
-    ts = datetime.fromtimestamp(create_time, tz=timezone.utc) if create_time else datetime.now(timezone.utc)
+    # WeChat 4.x uses create_time; 3.x uses CreateTime
+    create_time = row.get("create_time", row.get("CreateTime", 0))
+    ts = (
+        datetime.fromtimestamp(create_time, tz=timezone.utc)
+        if create_time
+        else datetime.now(timezone.utc)
+    )
+
+    # Determine if self-sent
+    # WeChat 3.x: IsSender field; 4.x: empty sender_wxid
+    is_self = bool(row.get("IsSender", 0)) if "IsSender" in row else (not sender_wxid)
+
+    # Build unique ID
+    local_id = row.get("local_id", row.get("localId", 0))
+    server_id = row.get("server_id", row.get("MsgSvrID", 0))
 
     return Message(
-        id=f"{db_name.replace('.db', '')}:{row.get('localId', 0)}",
-        server_id=row.get("MsgSvrID", 0),
-        conversation_id=row.get("StrTalker", ""),
+        id=f"{db_name.replace('.db', '')}:{local_id}",
+        server_id=server_id,
+        conversation_id=conversation_id or row.get("StrTalker", ""),
         conversation_title=conversation_title,
-        sender_id=row.get("StrTalker", ""),
+        sender_id=sender_wxid or row.get("StrTalker", ""),
         sender_name=sender_name,
-        is_self=bool(row.get("IsSender", 0)),
+        is_self=is_self,
         timestamp=ts,
         type=msg_type,
         content=content,
@@ -80,9 +105,10 @@ def row_to_message(
 
 
 def row_to_contact(row: dict) -> Contact:
+    # WeChat 4.x uses snake_case; 3.x uses CamelCase
     return Contact(
-        id=row.get("UserName", ""),
-        nickname=row.get("NickName"),
-        alias=row.get("Alias"),
-        remark=row.get("Remark"),
+        id=row.get("username", row.get("UserName", "")),
+        nickname=row.get("nick_name", row.get("NickName")),
+        alias=row.get("alias", row.get("Alias")),
+        remark=row.get("remark", row.get("Remark")),
     )

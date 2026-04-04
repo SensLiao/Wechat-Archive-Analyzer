@@ -1,0 +1,39 @@
+# Project design documents (local-only, not version controlled)
+Project_docs/
+CLAUDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# wxtools runtime data (keys, cache, config)
+.wxtools/
+
+# Local debug/PoC scripts
+scripts/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/

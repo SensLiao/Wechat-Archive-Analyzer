@@ -1,0 +1,23 @@
+{
+  "skill_name": "wechat",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "/wechat 帮我找张三昨天发的消息",
+      "expected_output": "Skill checks key status first. If no key, guides through extraction. If key exists, translates to: wxtools query --json --contact \"张三\" --since <yesterday> --limit 100. Presents results in Chinese with sender name and timestamp on each message.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "/wechat 搜索\"开会\"相关的消息，最近一周的",
+      "expected_output": "Translates to: wxtools query --json \"开会\" --since <7 days ago>. Presents matching messages with context. If many results, shows count and first 10 with offer to paginate.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "/wechat 导出工作群最近一个月的聊天记录",
+      "expected_output": "Translates to: wxtools export --json --format json --conversation \"工作群\" --since <1 month ago> --output ./export/. If large, informs user of estimated count and asks for confirmation before adding --yes.",
+      "files": []
+    }
+  ]
+}

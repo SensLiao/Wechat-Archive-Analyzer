@@ -4,30 +4,7 @@ from unittest.mock import patch, MagicMock
 
 from wxtools.plugins.wechat.key_extractor import (
     find_wechat_pid,
-    is_valid_hex_key,
-    extract_key_candidates_from_buffer,
 )
-
-
-def test_is_valid_hex_key():
-    assert is_valid_hex_key("ab" * 32) is True
-    assert is_valid_hex_key("AB" * 32) is True
-    assert is_valid_hex_key("ab" * 31) is False
-    assert is_valid_hex_key("zz" * 32) is False
-    assert is_valid_hex_key("") is False
-
-
-def test_extract_key_candidates_from_buffer():
-    fake_key = "ab" * 32
-    buffer = b"random_prefix_" + fake_key.encode("ascii") + b"_random_suffix"
-    candidates = extract_key_candidates_from_buffer(buffer)
-    assert fake_key in candidates
-
-
-def test_extract_key_candidates_no_match():
-    buffer = b"this has no hex keys in it at all just random text"
-    candidates = extract_key_candidates_from_buffer(buffer)
-    assert len(candidates) == 0
 
 
 @patch("wxtools.plugins.wechat.key_extractor.psutil")

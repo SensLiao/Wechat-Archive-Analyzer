@@ -76,6 +76,10 @@ class Keystore:
     def _meta_path(self, plugin: str, account_id: str) -> Path:
         return self._dir / f"{plugin}_{account_id}.json"
 
+    def has_key(self, plugin: str, account_id: str) -> bool:
+        """Check whether a key file already exists for this plugin/account."""
+        return self._key_path(plugin, account_id).exists()
+
     def store_key(
         self,
         plugin: str,
