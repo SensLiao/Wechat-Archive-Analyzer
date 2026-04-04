@@ -1,10 +1,22 @@
 # wxtools — 微信聊天记录解密与查询工具
 
-> **当前版本：v0.3.0**
+> **当前版本：v0.4.0**
 
 本地解密微信 PC 版（4.x / 3.x）的 SQLCipher 加密数据库，支持关键词搜索、全文检索、按联系人/时间筛选，导出 JSON / CSV / HTML（聊天气泡），附件自动解析与导出。v0.3 新增公众号消息和朋友圈查询导出。所有数据留在本地。
 
 提供 Claude Code 和 Codex 的 `/wechat` skill，可用自然语言查询聊天记录。
+
+## Cross-Platform Support (v0.4.0+)
+
+| Capability | Windows | macOS | Linux |
+|-----------|---------|-------|-------|
+| Key extraction (`key extract`) | Yes | No | No |
+| Key import (`key set`) | Yes | Yes | Yes |
+| Query / Export | Yes | Yes | Yes |
+| Secret protection | DPAPI | Keychain | Secret Service |
+| Fallback protection | Password | Password | Password |
+
+**Non-Windows users:** Extract your key on Windows first, then use `wxtools key set <hex-or-json>` to import it on any platform.
 
 ## 安装
 
@@ -139,7 +151,15 @@ wxtools config set active_account wxid_xxx  # 设置默认账号
 
 ## 版本历史
 
-### v0.3.0（当前版本）
+### v0.4.0 — Cross-Platform（当前版本）
+
+- Secret backend abstraction (DPAPI, macOS Keychain, Linux Secret Service, password-file)
+- `key set` is now the standard cross-platform key import entry point
+- `key extract` returns clear platform error on non-Windows
+- Path discovery adapters for macOS and Linux
+- CI expanded to Windows, macOS, and Ubuntu
+
+### v0.3.0
 
 v3 新增功能：
 
