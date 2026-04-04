@@ -72,8 +72,22 @@ def export(ctx, fmt, output_path, contact, conversation, since, until_date, limi
             surface=surface,
         )
 
+        # Set up moments reader if needed
+        sns_reader = None
+        if surface in ("moments", "all"):
+            try:
+                from wxtools.plugins.wechat.sns_reader import SnsReader
+                sns_reader = SnsReader(reader._account_id, reader._cache_dir.parent)
+            except Exception:
+                pass
+
         # Count for confirmation
-        total = reader.count_messages(msg_filter)
+        if surface == "moments" and sns_reader:
+            total = sns_reader.count_messages(msg_filter)
+        elif surface == "all" and sns_reader:
+            total = reader.count_messages(msg_filter) + sns_reader.count_messages(msg_filter)
+        else:
+            total = reader.count_messages(msg_filter)
 
         if total > 1000 and not yes:
             if state.json_mode:
@@ -100,8 +114,15 @@ def export(ctx, fmt, output_path, contact, conversation, since, until_date, limi
             from wxtools.plugins.wechat.attachment_resolver import AttachmentResolver
             resolver = AttachmentResolver(account_data_path)
 
+        # Build message iterator based on surface
+        def _iter_all():
+            if surface in ("chat", "public", "all"):
+                yield from reader.iter_messages(msg_filter)
+            if surface in ("moments", "all") and sns_reader:
+                yield from sns_reader.iter_messages(msg_filter)
+
         written = 0
-        for msg in reader.iter_messages(msg_filter):
+        for msg in _iter_all():
             if resolver:
                 msg.attachment_path = resolver.resolve_path(msg.type, msg.content)
                 if attachments in ("check", "copy") and msg.attachment_path:

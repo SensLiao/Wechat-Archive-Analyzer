@@ -13,7 +13,7 @@ from wxtools.cli.output import error_envelope, print_json, success_envelope
 from wxtools.core.config import load_config
 from wxtools.core.errors import KeyNotFoundError, KeyPasswordWrongError, WxToolsError
 from wxtools.core.keystore import Keystore
-from wxtools.core.schema import MessageFilter
+from wxtools.core.schema import MessageFilter, QueryResult
 from wxtools.core.unlock_session import UnlockSession
 
 logger = logging.getLogger("wxtools.cli.query")
@@ -172,7 +172,30 @@ def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limi
             surface=surface,
         )
 
-        result = reader.search(keyword=keyword, filters=msg_filter)
+        # Route to appropriate reader based on surface
+        if surface == "moments":
+            from wxtools.plugins.wechat.sns_reader import SnsReader
+            sns = SnsReader(reader._account_id, reader._cache_dir.parent)
+            result = sns.search(keyword=keyword, filters=msg_filter)
+        elif surface == "all":
+            # Merge chat + public + moments
+            result = reader.search(keyword=keyword, filters=msg_filter)
+            try:
+                from wxtools.plugins.wechat.sns_reader import SnsReader
+                sns = SnsReader(reader._account_id, reader._cache_dir.parent)
+                sns_result = sns.search(keyword=keyword, filters=msg_filter)
+                all_msgs = result.messages + sns_result.messages
+                all_msgs.sort(key=lambda m: (m.timestamp, m.server_id))
+                result = QueryResult(
+                    messages=all_msgs[:limit],
+                    total_estimate=result.total_estimate + sns_result.total_estimate,
+                    has_more=len(all_msgs) > limit,
+                    query=result.query,
+                )
+            except Exception:
+                pass  # sns.db may not exist
+        else:
+            result = reader.search(keyword=keyword, filters=msg_filter)
 
         # Attachment resolution
         if attachments and result.messages:
