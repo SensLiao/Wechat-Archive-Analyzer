@@ -1,8 +1,8 @@
 # wxtools — 微信聊天记录解密与查询工具
 
-> **当前版本：v0.2.0**
+> **当前版本：v0.3.0**
 
-本地解密微信 PC 版（4.x / 3.x）的 SQLCipher 加密数据库，支持关键词搜索、全文检索、按联系人/时间筛选，导出 JSON / CSV / HTML（聊天气泡），附件自动解析与导出。所有数据留在本地。
+本地解密微信 PC 版（4.x / 3.x）的 SQLCipher 加密数据库，支持关键词搜索、全文检索、按联系人/时间筛选，导出 JSON / CSV / HTML（聊天气泡），附件自动解析与导出。v0.3 新增公众号消息和朋友圈查询导出。所有数据留在本地。
 
 提供 Claude Code 和 Codex 的 `/wechat` skill，可用自然语言查询聊天记录。
 
@@ -37,6 +37,9 @@ wxtools key extract
 wxtools query "关键词"
 wxtools query --contact "张三" --since 2026-01-01
 wxtools query --conversation "工作群" --type image --limit 50
+wxtools query --surface public                         # 查询公众号消息
+wxtools query --surface moments --contact "张三"       # 查询张三的朋友圈
+wxtools query --surface all "关键词"                   # 跨所有数据面搜索
 ```
 
 首次查询自动解密数据库并缓存。后续查询时自动检测微信数据库是否有更新，有新消息则增量解密，无更新直接用缓存。
@@ -136,7 +139,19 @@ wxtools config set active_account wxid_xxx  # 设置默认账号
 
 ## 版本历史
 
-### v0.2.0（当前版本）
+### v0.3.0（当前版本）
+
+v3 新增功能：
+
+| 功能 | 说明 |
+|------|------|
+| 数据面切换 | `--surface` 参数支持 chat/public/moments/all 四种数据面 |
+| 公众号消息 | `--surface public` 查询/导出公众号消息（biz_message DB） |
+| 朋友圈 | `--surface moments` 查询/导出朋友圈动态、评论、点赞 |
+| CI 流水线 | GitHub Actions CI：pytest + ruff + compileall + secret scan |
+| 安全清理 | 工作区 secret scan，git history 审计，lint 问题全部修复 |
+
+### v0.2.0
 
 v2 新增功能：
 

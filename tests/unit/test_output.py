@@ -6,7 +6,7 @@ def test_success_envelope():
     assert result["ok"] is True
     assert result["data"]["count"] == 5
     assert result["meta"]["command"] == "query"
-    assert result["meta"]["version"] == "0.1.0"
+    assert result["meta"]["version"] == "0.3.0"
 
 
 def test_error_envelope():

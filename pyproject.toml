@@ -7,7 +7,7 @@ packages = ["src/wxtools"]
 
 [project]
 name = "wxtools"
-version = "0.1.0"
+version = "0.3.0"
 description = "Local-first WeChat chat history decryption and analysis toolkit"
 requires-python = ">=3.10"
 license = "MIT"
