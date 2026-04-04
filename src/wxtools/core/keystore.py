@@ -1,68 +1,17 @@
-"""Encrypted key storage with DPAPI and Fernet/scrypt backends."""
-
+"""Encrypted key storage with pluggable secret backends."""
 from __future__ import annotations
 
 import json
 import os
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
-
 from wxtools.core.errors import KeyNotFoundError, KeyPasswordWrongError
+from wxtools.core.secret_backends import get_backend
 
-_SCRYPT_N = 2**17
-_SCRYPT_R = 8
-_SCRYPT_P = 1
-_SCRYPT_KEY_LEN = 32
-_SALT_LEN = 16
-_VERSION = b"\x01"
-
-
-def _derive_fernet_key(password: str, salt: bytes) -> bytes:
-    import base64
-    kdf = Scrypt(salt=salt, length=_SCRYPT_KEY_LEN, n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P)
-    raw = kdf.derive(password.encode("utf-8"))
-    return base64.urlsafe_b64encode(raw)
-
-
-def _dpapi_encrypt(data: bytes) -> bytes:
-    import ctypes
-    import ctypes.wintypes
-
-    class DATA_BLOB(ctypes.Structure):
-        _fields_ = [("cbData", ctypes.wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
-
-    input_blob = DATA_BLOB(len(data), ctypes.create_string_buffer(data, len(data)))
-    output_blob = DATA_BLOB()
-    if not ctypes.windll.crypt32.CryptProtectData(
-        ctypes.byref(input_blob), None, None, None, None, 0, ctypes.byref(output_blob)
-    ):
-        raise OSError("DPAPI CryptProtectData failed")
-    encrypted = ctypes.string_at(output_blob.pbData, output_blob.cbData)
-    ctypes.windll.kernel32.LocalFree(output_blob.pbData)
-    return encrypted
-
-
-def _dpapi_decrypt(data: bytes) -> bytes:
-    import ctypes
-    import ctypes.wintypes
-
-    class DATA_BLOB(ctypes.Structure):
-        _fields_ = [("cbData", ctypes.wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
-
-    input_blob = DATA_BLOB(len(data), ctypes.create_string_buffer(data, len(data)))
-    output_blob = DATA_BLOB()
-    if not ctypes.windll.crypt32.CryptUnprotectData(
-        ctypes.byref(input_blob), None, None, None, None, 0, ctypes.byref(output_blob)
-    ):
-        raise OSError("DPAPI CryptUnprotectData failed")
-    decrypted = ctypes.string_at(output_blob.pbData, output_blob.cbData)
-    ctypes.windll.kernel32.LocalFree(output_blob.pbData)
-    return decrypted
+_VERSION_LEGACY = b"\x01"
+_VERSION_V2 = b"\x02"
 
 
 class Keystore:
@@ -77,7 +26,6 @@ class Keystore:
         return self._dir / f"{plugin}_{account_id}.json"
 
     def has_key(self, plugin: str, account_id: str) -> bool:
-        """Check whether a key file already exists for this plugin/account."""
         return self._key_path(plugin, account_id).exists()
 
     def store_key(
@@ -85,28 +33,34 @@ class Keystore:
         plugin: str,
         account_id: str,
         key: bytes,
-        protection: str = "dpapi",
+        backend_name: str = "auto",
         password: Optional[str] = None,
+        # Legacy alias — callers may still pass protection="dpapi"|"password"
+        protection: Optional[str] = None,
     ) -> None:
-        if protection == "password":
-            if not password:
-                raise ValueError("Password required for password protection mode")
-            salt = os.urandom(_SALT_LEN)
-            fernet_key = _derive_fernet_key(password, salt)
-            f = Fernet(fernet_key)
-            encrypted = _VERSION + salt + f.encrypt(key)
-        elif protection == "dpapi":
-            if sys.platform != "win32":
-                raise OSError("DPAPI only available on Windows")
-            encrypted = _VERSION + b"\x00" + _dpapi_encrypt(key)
+        # Legacy callers pass protection= instead of backend_name=
+        if protection is not None and backend_name == "auto":
+            backend_name = _normalize_backend_name(protection)
         else:
-            raise ValueError(f"Unknown protection mode: {protection}")
+            backend_name = _normalize_backend_name(backend_name)
 
-        self._key_path(plugin, account_id).write_bytes(encrypted)
+        kwargs: Dict[str, Any] = {}
+        if password:
+            kwargs["password"] = password
+
+        backend = get_backend(backend_name, **kwargs)
+        scope = f"keystore:{plugin}:{account_id}"
+        ciphertext = backend.protect(key, scope=scope)
+
+        # v2 on-disk format: VERSION + name_len(1 byte) + name + ciphertext
+        name_bytes = backend.name.encode("utf-8")
+        stored = _VERSION_V2 + bytes([len(name_bytes)]) + name_bytes + ciphertext
+        self._key_path(plugin, account_id).write_bytes(stored)
+
         meta: Dict[str, Any] = {
             "wxid": account_id,
             "plugin": plugin,
-            "protection": protection,
+            "protection": backend.name,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "last_verified": datetime.now(timezone.utc).isoformat(),
         }
@@ -114,23 +68,60 @@ class Keystore:
             json.dumps(meta, indent=2), encoding="utf-8"
         )
 
-    def get_key(self, plugin: str, account_id: str, password: Optional[str] = None) -> bytes:
+    def get_key(
+        self,
+        plugin: str,
+        account_id: str,
+        password: Optional[str] = None,
+    ) -> bytes:
         key_path = self._key_path(plugin, account_id)
         if not key_path.exists():
             raise KeyNotFoundError(account_id)
         data = key_path.read_bytes()
         version = data[0:1]
-        if version != _VERSION:
+
+        if version == _VERSION_V2:
+            return self._read_v2(data, plugin, account_id, password)
+        elif version == _VERSION_LEGACY:
+            return self._read_v1_legacy(data, password)
+        else:
             raise ValueError(f"Unsupported keystore version: {version!r}")
+
+    def _read_v2(
+        self, data: bytes, plugin: str, account_id: str,
+        password: Optional[str],
+    ) -> bytes:
+        name_len = data[1]
+        name = data[2:2 + name_len].decode("utf-8")
+        ciphertext = data[2 + name_len:]
+
+        kwargs: Dict[str, Any] = {}
+        if password:
+            kwargs["password"] = password
+
+        backend = get_backend(name, **kwargs)
+        scope = f"keystore:{plugin}:{account_id}"
+        return backend.unprotect(ciphertext, scope=scope)
+
+    def _read_v1_legacy(self, data: bytes, password: Optional[str]) -> bytes:
+        """Read old v1 format for backward compatibility."""
         marker = data[1:2]
         if marker == b"\x00":
-            return _dpapi_decrypt(data[2:])
+            # v1 DPAPI
+            backend = get_backend("windows-dpapi")
+            return backend.unprotect(data[2:], scope="legacy")
         else:
-            salt = data[1:1 + _SALT_LEN]
-            token = data[1 + _SALT_LEN:]
+            # v1 password (salt + fernet token)
             if not password:
                 raise KeyPasswordWrongError()
-            fernet_key = _derive_fernet_key(password, salt)
+            salt = data[1:1 + 16]
+            token = data[1 + 16:]
+            import base64
+            from cryptography.fernet import Fernet, InvalidToken
+            from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+            kdf = Scrypt(salt=salt, length=32, n=2**17, r=8, p=1)
+            raw = kdf.derive(password.encode("utf-8"))
+            fernet_key = base64.urlsafe_b64encode(raw)
             f = Fernet(fernet_key)
             try:
                 return f.decrypt(token)
@@ -146,7 +137,6 @@ class Keystore:
             meta_path.unlink()
 
     def update_metadata(self, plugin: str, account_id: str, updates: Dict[str, Any]) -> None:
-        """Merge *updates* into existing metadata JSON."""
         meta_path = self._meta_path(plugin, account_id)
         if not meta_path.exists():
             return
@@ -163,3 +153,12 @@ class Keystore:
             except (json.JSONDecodeError, KeyError):
                 continue
         return keys
+
+
+def _normalize_backend_name(name: str) -> str:
+    """Map legacy protection values to backend names."""
+    legacy_map = {
+        "dpapi": "windows-dpapi",
+        "password": "password-file",
+    }
+    return legacy_map.get(name, name)
