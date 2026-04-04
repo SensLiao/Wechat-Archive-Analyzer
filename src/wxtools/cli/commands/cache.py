@@ -55,7 +55,7 @@ def status(ctx):
         for child in sorted(cache_dir.iterdir()):
             if child.is_dir():
                 size = _dir_size(child)
-                db_count = len(list(child.glob("*.db")))
+                db_count = len(list(child.rglob("*.db")))
                 # Read cache metadata if available
                 meta_file = child / ".cache_meta.json"
                 decrypted_at = None
