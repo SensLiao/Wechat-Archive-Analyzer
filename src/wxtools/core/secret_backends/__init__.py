@@ -13,8 +13,16 @@ _REGISTRY = {
     "windows-dpapi": lambda **kw: DpapiBackend(),
     "macos-keychain": lambda **kw: MacosKeychainBackend(),
     "linux-secret-service": lambda **kw: LinuxSecretServiceBackend(),
-    "password-file": lambda **kw: PasswordFileBackend(password=kw["password"]),
+    "password-file": lambda **kw: PasswordFileBackend(password=_require_password(kw)),
 }
+
+
+def _require_password(kw: dict) -> str:
+    pw = kw.get("password")
+    if not pw:
+        from wxtools.core.errors import KeyPasswordWrongError
+        raise KeyPasswordWrongError()
+    return pw
 
 
 def get_backend(name: str, **kwargs):
