@@ -62,3 +62,46 @@ class TestDpapiBackend:
         ciphertext = backend.protect(plaintext, scope="keystore:wechat:wxid_test")
         recovered = backend.unprotect(ciphertext, scope="keystore:wechat:wxid_test")
         assert recovered == plaintext
+
+
+# ---------------------------------------------------------------------------
+# macOS Keychain backend
+# ---------------------------------------------------------------------------
+from unittest.mock import patch  # noqa: E402
+
+from wxtools.core.secret_backends.macos_keychain import MacosKeychainBackend  # noqa: E402
+
+
+class TestMacosKeychainBackend:
+    def test_implements_protocol(self):
+        backend = MacosKeychainBackend()
+        assert isinstance(backend, SecretBackend)
+
+    def test_name(self):
+        assert MacosKeychainBackend().name == "macos-keychain"
+
+    def test_is_available_false_on_non_mac(self):
+        with patch("sys.platform", "win32"):
+            assert MacosKeychainBackend().is_available() is False
+
+    def test_roundtrip_mocked(self):
+        backend = MacosKeychainBackend()
+        stored_passwords: dict[tuple[str, str], bytes] = {}
+
+        def mock_store(service, account, password_bytes):
+            stored_passwords[(service, account)] = password_bytes
+
+        def mock_retrieve(service, account):
+            return stored_passwords.get((service, account))
+
+        def mock_delete(service, account):
+            stored_passwords.pop((service, account), None)
+
+        with patch.object(backend, "_store_to_keychain", side_effect=mock_store), \
+             patch.object(backend, "_retrieve_from_keychain", side_effect=mock_retrieve), \
+             patch.object(backend, "_delete_from_keychain", side_effect=mock_delete), \
+             patch.object(backend, "is_available", return_value=True):
+            plaintext = b"keychain test secret"
+            ciphertext = backend.protect(plaintext, scope="keystore:wechat:wxid_test")
+            recovered = backend.unprotect(ciphertext, scope="keystore:wechat:wxid_test")
+            assert recovered == plaintext
