@@ -16,11 +16,13 @@ dependencies = [
     "click>=8.0",
     "pyyaml>=6.0",
     "psutil>=5.9",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
 ]
 
 [project.optional-dependencies]
 fast = ["pysqlcipher3>=1.2"]
-dev = ["pytest>=7.0", "ruff>=0.4", "pycryptodome>=3.19"]
+dev = ["pytest>=7.0", "ruff>=0.4", "pycryptodome>=3.19", "httpx>=0.27"]
 
 [project.scripts]
 wxtools = "wxtools.cli.main:cli"
