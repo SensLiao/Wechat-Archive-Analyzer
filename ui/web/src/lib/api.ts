@@ -27,6 +27,15 @@ export async function apiFetch<T = unknown>(
     },
   })
   if (!res.ok) {
+    if (res.status === 401 && localStorage.getItem('wxtools_token')) {
+      localStorage.removeItem('wxtools_token')
+      window.alert(
+        'Session expired (server may have restarted). The page will reload to obtain a new token.',
+      )
+      window.location.reload()
+      // Throw to prevent callers from processing the failed response
+      throw new Error('Session expired — reloading')
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail?.message || err.detail || res.statusText)
   }

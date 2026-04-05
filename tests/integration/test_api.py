@@ -173,5 +173,6 @@ class TestExportTemplates:
         r = client.get("/api/export/templates", headers={"X-Session-Token": token})
         assert r.status_code == 200
         data = r.json()
-        assert isinstance(data, list)
-        assert len(data) >= 3  # json, csv, html at minimum
+        templates = data.get("templates", data) if isinstance(data, dict) else data
+        assert isinstance(templates, list)
+        assert len(templates) >= 3  # json, csv, html at minimum

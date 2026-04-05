@@ -38,6 +38,7 @@ class SearchBody(BaseModel):
     offset: int = 0
     surface: str = "chat"
     attachments: Optional[str] = None
+    has_attachment: Optional[bool] = None
     sql: Optional[str] = None
     account: Optional[str] = None
     password: Optional[str] = None
@@ -70,7 +71,15 @@ def search(body: SearchBody, cfg: Config = Depends(get_config)) -> dict:
             attachments=body.attachments,
             sql=body.sql,
         )
-        return query_service.search(reader, path, request)
+        result = query_service.search(reader, path, request)
+
+        # Post-filter: keep only messages that have an attachment
+        if body.has_attachment and hasattr(result, "messages"):
+            filtered = [m for m in result.messages if m.attachment_path]
+            result.messages = filtered
+            result.total_estimate = len(filtered)
+
+        return result
     except WxToolsError as e:
         raise HTTPException(
             status_code=_status_for(e.code),

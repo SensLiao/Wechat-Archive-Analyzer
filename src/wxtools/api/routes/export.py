@@ -15,9 +15,9 @@ from wxtools.core.errors import WxToolsError
 router = APIRouter(tags=["export"], dependencies=[Depends(verify_token)])
 
 AVAILABLE_TEMPLATES = [
-    {"name": "json", "description": "JSON export (default)"},
-    {"name": "csv", "description": "CSV spreadsheet export"},
-    {"name": "html", "description": "HTML readable export"},
+    {"id": "json", "name": "json", "description": "JSON export (default)"},
+    {"id": "csv", "name": "csv", "description": "CSV spreadsheet export"},
+    {"id": "html", "name": "html", "description": "HTML readable export"},
 ]
 
 
@@ -48,9 +48,9 @@ class RunExportBody(BaseModel):
 
 
 @router.get("/export/templates")
-def list_templates() -> list[dict]:
+def list_templates() -> dict:
     """Return the list of available export templates."""
-    return AVAILABLE_TEMPLATES
+    return {"templates": AVAILABLE_TEMPLATES}
 
 
 @router.post("/export")

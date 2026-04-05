@@ -8,8 +8,8 @@ interface WorkspaceMeta {
   name: string
   description: string
   item_count: number
-  created: string
-  updated: string
+  created_at: string
+  updated_at: string
 }
 
 interface WorkspaceDetail extends WorkspaceMeta {
@@ -44,11 +44,12 @@ function Workspace() {
 
   // Load workspace list
   useEffect(() => {
-    apiFetch<{ workspaces: WorkspaceMeta[] }>('/workspaces')
+    apiFetch<WorkspaceMeta[]>('/workspaces')
       .then((data) => {
-        setWorkspaces(data.workspaces)
-        if (data.workspaces.length > 0 && !activeWs) {
-          setActiveWs(data.workspaces[0].id)
+        const list = Array.isArray(data) ? data : []
+        setWorkspaces(list)
+        if (list.length > 0 && !activeWs) {
+          setActiveWs(list[0].id)
         }
       })
       .catch((err: Error) => setError(err.message))
@@ -62,14 +63,37 @@ function Workspace() {
       return
     }
     setSelectedItem(null)
-    apiFetch<WorkspaceDetail>(`/workspaces/${activeWs}`)
-      .then(setDetail)
+    apiFetch<Record<string, unknown>>(`/workspaces/${activeWs}`)
+      .then((raw) => {
+        // Map backend item fields to frontend WorkspaceItemData
+        const rawItems = (raw.items as Record<string, unknown>[]) || []
+        const items: WorkspaceItemData[] = rawItems.map((it) => ({
+          id: (it.id as string) || '',
+          type: (it.type as WorkspaceItemData['type']) || 'note',
+          title: (it.title as string) || '',
+          source_id: (it.source_id as string) || undefined,
+          surface: (it.surface as string) || undefined,
+          content_preview: (it.content_preview as string) || undefined,
+          tags: (it.tags as string[]) || [],
+          notes: (it.notes as string) || '',
+          created: (it.timestamp as string) || (it.created as string) || '',
+        }))
+        setDetail({
+          id: raw.id as string,
+          name: (raw.name as string) || '',
+          description: (raw.description as string) || '',
+          item_count: items.length,
+          created_at: (raw.created_at as string) || '',
+          updated_at: (raw.updated_at as string) || '',
+          items,
+        })
+      })
       .catch((err: Error) => setError(err.message))
   }, [activeWs])
 
   const refreshList = useCallback(() => {
-    apiFetch<{ workspaces: WorkspaceMeta[] }>('/workspaces')
-      .then((data) => setWorkspaces(data.workspaces))
+    apiFetch<WorkspaceMeta[]>('/workspaces')
+      .then((data) => setWorkspaces(Array.isArray(data) ? data : []))
       .catch(() => { /* swallow */ })
   }, [])
 
@@ -79,10 +103,18 @@ function Workspace() {
     setCreating(true)
     setError(null)
     try {
-      const ws = await apiFetch<WorkspaceMeta>('/workspaces', {
+      const raw = await apiFetch<Record<string, unknown>>('/workspaces', {
         method: 'POST',
         body: JSON.stringify({ name: createName.trim(), description: createDesc.trim() || undefined }),
       })
+      const ws: WorkspaceMeta = {
+        id: raw.id as string,
+        name: (raw.name as string) || '',
+        description: (raw.description as string) || '',
+        item_count: ((raw.items as unknown[]) || []).length,
+        created_at: (raw.created_at as string) || '',
+        updated_at: (raw.updated_at as string) || '',
+      }
       setWorkspaces((prev) => [...prev, ws])
       setActiveWs(ws.id)
       setShowCreate(false)
@@ -129,7 +161,7 @@ function Workspace() {
     }
   }
 
-  // Edit notes (optimistic update then persist)
+  // Edit notes (optimistic update then persist via PATCH)
   const handleEditNotes = async (itemId: string, notes: string) => {
     if (!activeWs || !detail) return
     const updatedItems = detail.items.map((it) =>
@@ -139,8 +171,14 @@ function Workspace() {
     if (selectedItem?.id === itemId) {
       setSelectedItem({ ...selectedItem, notes })
     }
-    // Persist via adding the item again with notes — API may support PATCH
-    // For now, this is a local-only optimistic update
+    try {
+      await apiFetch(`/workspaces/${activeWs}/items/${itemId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ notes }),
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '\u4FDD\u5B58\u5907\u6CE8\u5931\u8D25')
+    }
   }
 
   const handleSelectItem = (item: WorkspaceItemData) => {
@@ -157,8 +195,8 @@ function Workspace() {
     setEditingNote(false)
   }
 
-  const handleSaveTags = () => {
-    if (!selectedItem || !detail) return
+  const handleSaveTags = async () => {
+    if (!selectedItem || !detail || !activeWs) return
     const newTags = tagDraft.split(',').map((t) => t.trim()).filter(Boolean)
     const updatedItems = detail.items.map((it) =>
       it.id === selectedItem.id ? { ...it, tags: newTags } : it
@@ -166,6 +204,14 @@ function Workspace() {
     setDetail({ ...detail, items: updatedItems })
     setSelectedItem({ ...selectedItem, tags: newTags })
     setEditingTags(false)
+    try {
+      await apiFetch(`/workspaces/${activeWs}/items/${selectedItem.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ tags: newTags }),
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '\u4FDD\u5B58\u6807\u7B7E\u5931\u8D25')
+    }
   }
 
   const handleExportWorkspace = () => {

@@ -220,6 +220,43 @@ def remove_item(
     return workspace
 
 
+def update_item(
+    cfg: Config,
+    workspace_id: str,
+    item_id: str,
+    updates: dict[str, Any],
+) -> dict[str, Any]:
+    """Update fields on an existing workspace item.
+
+    Supported update fields: ``tags``, ``notes``, ``title``.
+
+    Returns:
+        The updated item dict.
+
+    Raises:
+        WorkspaceNotFoundError: When workspace does not exist.
+        WorkspaceItemNotFoundError: When item is not found.
+    """
+    workspace = _read_workspace(cfg, workspace_id)
+    allowed_fields = {"tags", "notes", "title"}
+    target_item: dict[str, Any] | None = None
+
+    for item in workspace["items"]:
+        if item.get("id") == item_id:
+            for key, value in updates.items():
+                if key in allowed_fields:
+                    item[key] = value
+            target_item = item
+            break
+
+    if target_item is None:
+        raise WorkspaceItemNotFoundError(item_id)
+
+    workspace["updated_at"] = _now_iso()
+    _write_workspace(cfg, workspace)
+    return target_item
+
+
 def delete_workspace(cfg: Config, workspace_id: str) -> dict[str, Any]:
     """Delete a workspace entirely.
 

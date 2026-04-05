@@ -45,3 +45,7 @@ htmlcov/
 # Node.js / Frontend
 node_modules/
 ui/web/dist/
+
+# wxtools export artifacts (default output lands in repo root)
+conversations/
+manifest.json

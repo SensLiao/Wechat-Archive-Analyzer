@@ -625,12 +625,29 @@ class DbReader:
 
 
 def _type_name_to_codes(type_name: str) -> List[int]:
+    """Convert type name(s) to WeChat raw type codes.
+
+    Supports comma-separated values, e.g. ``"text,image"`` returns ``[1, 3]``.
+    """
     mapping: Dict[str, List[int]] = {
         "text": [1],
         "image": [3],
         "voice": [34],
         "video": [43],
         "file": [49],
+        "link": [49],  # links are a subtype of type 49 in WeChat
         "system": [10000, 10002],
     }
-    return mapping.get(type_name.lower(), [])
+    codes: List[int] = []
+    for name in type_name.split(","):
+        name = name.strip().lower()
+        if name:
+            codes.extend(mapping.get(name, []))
+    # Deduplicate while preserving order
+    seen: set[int] = set()
+    result: List[int] = []
+    for c in codes:
+        if c not in seen:
+            seen.add(c)
+            result.append(c)
+    return result

@@ -4,15 +4,32 @@ import RecentExports from '@/components/RecentExports'
 import type { ExportRecord } from '@/components/RecentExports'
 
 interface HomeSummary {
-  health: {
-    db_status: string
-    key_status: string
-    cache_status: string
-    last_sync: string | null
+  accounts: {
+    discovered: string[]
+    count: number
+    active: string | null
+  }
+  keys: {
+    stored: number
+    verified: number
+    accounts: string[]
+  }
+  cache: {
+    exists: boolean
+    size_bytes: number
+    size_human: string
+    account_count: number
   }
   recent_searches: Array<{ query: string; timestamp: string; result_count: number }>
   recent_workspaces: Array<{ id: string; name: string; item_count: number; updated: string }>
   recent_exports: Array<{ id: string; format: string; record_count: number; created: string; status?: string }>
+}
+
+function deriveHealth(summary: HomeSummary) {
+  const dbStatus = summary.accounts.count > 0 ? 'ok' : 'warn'
+  const keyStatus = summary.keys.stored > 0 ? 'ok' : 'warn'
+  const cacheStatus = summary.cache.exists ? 'ok' : 'warn'
+  return { dbStatus, keyStatus, cacheStatus }
 }
 
 function Home() {
@@ -26,6 +43,8 @@ function Home() {
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
+
+  const health = summary ? deriveHealth(summary) : null
 
   const recentExportRecords: ExportRecord[] = (summary?.recent_exports || []).map((e) => ({
     id: e.id,
@@ -45,20 +64,17 @@ function Home() {
         <h2 className="section-title">\u7CFB\u7EDF\u72B6\u6001</h2>
         {loading && <p className="text-muted">\u52A0\u8F7D\u4E2D...</p>}
         {error && <p className="text-error">\u65E0\u6CD5\u8FDE\u63A5\u540E\u7AEF: {error}</p>}
-        {summary && (
+        {summary && health && (
           <div className="health-indicators">
-            <div className={`health-chip ${summary.health.db_status === 'ok' ? 'health-ok' : 'health-warn'}`}>
-              \u6570\u636E\u5E93: {summary.health.db_status}
+            <div className={`health-chip ${health.dbStatus === 'ok' ? 'health-ok' : 'health-warn'}`}>
+              \u6570\u636E\u5E93: {health.dbStatus === 'ok' ? `${summary.accounts.count} \u4E2A\u8D26\u53F7` : '\u672A\u53D1\u73B0'}
             </div>
-            <div className={`health-chip ${summary.health.key_status === 'ok' ? 'health-ok' : 'health-warn'}`}>
-              \u5BC6\u94A5: {summary.health.key_status}
+            <div className={`health-chip ${health.keyStatus === 'ok' ? 'health-ok' : 'health-warn'}`}>
+              \u5BC6\u94A5: {health.keyStatus === 'ok' ? `${summary.keys.stored} \u5DF2\u5B58\u50A8 / ${summary.keys.verified} \u5DF2\u9A8C\u8BC1` : '\u672A\u914D\u7F6E'}
             </div>
-            <div className={`health-chip ${summary.health.cache_status === 'ok' ? 'health-ok' : 'health-warn'}`}>
-              \u7F13\u5B58: {summary.health.cache_status}
+            <div className={`health-chip ${health.cacheStatus === 'ok' ? 'health-ok' : 'health-warn'}`}>
+              \u7F13\u5B58: {health.cacheStatus === 'ok' ? summary.cache.size_human : '\u65E0\u7F13\u5B58'}
             </div>
-            {summary.health.last_sync && (
-              <span className="text-muted">\u4E0A\u6B21\u540C\u6B65: {summary.health.last_sync}</span>
-            )}
           </div>
         )}
       </section>

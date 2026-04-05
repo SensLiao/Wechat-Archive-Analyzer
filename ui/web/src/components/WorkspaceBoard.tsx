@@ -7,8 +7,8 @@ interface WorkspaceMeta {
   name: string
   description: string
   item_count: number
-  created: string
-  updated: string
+  created_at: string
+  updated_at: string
 }
 
 type SortKey = 'time' | 'type'

@@ -3,13 +3,13 @@ import type { Surface } from './SurfaceSwitcher'
 
 export interface MessageResult {
   id: string
-  sender: string
+  sender_name: string
   content: string
   timestamp: string
-  conversation: string
+  conversation_title: string
   surface: Surface
-  msg_type: string
-  has_attachment: boolean
+  type: string
+  attachment_path: string | null
 }
 
 interface ResultStreamProps {
@@ -21,6 +21,7 @@ interface ResultStreamProps {
   keyword: string
   onSelect: (msg: MessageResult) => void
   onLoadMore: () => void
+  onAddToWorkspace?: (msg: MessageResult) => void
 }
 
 function surfaceClass(surface: Surface): string {
@@ -80,6 +81,7 @@ function ResultStream({
   keyword,
   onSelect,
   onLoadMore,
+  onAddToWorkspace,
 }: ResultStreamProps) {
   const handleSelect = useCallback(
     (msg: MessageResult) => () => onSelect(msg),
@@ -147,10 +149,10 @@ function ResultStream({
               </span>
             </div>
             <div className="result-card__meta">
-              <span className="result-card__sender">{msg.sender}</span>
+              <span className="result-card__sender">{msg.sender_name}</span>
               <span className="result-card__sep">/</span>
-              <span className="result-card__conversation">{msg.conversation}</span>
-              {msg.has_attachment && (
+              <span className="result-card__conversation">{msg.conversation_title}</span>
+              {msg.attachment_path && (
                 <span className="result-card__attachment-icon" title="Has attachment">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -165,7 +167,12 @@ function ResultStream({
               <button type="button" className="result-card__action" onClick={(e) => { e.stopPropagation(); onSelect(msg) }}>
                 View context
               </button>
-              <button type="button" className="result-card__action" title="Add to workspace">
+              <button
+                type="button"
+                className="result-card__action"
+                title="Add to workspace"
+                onClick={(e) => { e.stopPropagation(); onAddToWorkspace?.(msg) }}
+              >
                 + Workspace
               </button>
               <button type="button" className="result-card__action" title="Export this message">

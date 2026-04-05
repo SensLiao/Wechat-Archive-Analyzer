@@ -35,7 +35,7 @@ function readParamsToState(params: URLSearchParams): {
       conversation: params.get('conversation') || '',
       msgTypes: msgTypesRaw ? new Set(msgTypesRaw.split(',')) : new Set<string>(),
       surface,
-      hasAttachment: params.get('attachments') === '1',
+      hasAttachment: params.get('has_attachment') === '1',
     },
   }
 }
@@ -49,7 +49,7 @@ function stateToParams(keyword: string, surface: Surface, facets: Facets): URLSe
   if (facets.contact) p.set('contact', facets.contact)
   if (facets.conversation) p.set('conversation', facets.conversation)
   if (facets.msgTypes.size > 0) p.set('msg_type', [...facets.msgTypes].join(','))
-  if (facets.hasAttachment) p.set('attachments', '1')
+  if (facets.hasAttachment) p.set('has_attachment', '1')
   return p
 }
 
@@ -69,7 +69,9 @@ function buildBody(
   if (facets.contact) body.contact = facets.contact
   if (facets.conversation) body.conversation = facets.conversation
   if (facets.msgTypes.size > 0) body.msg_type = [...facets.msgTypes].join(',')
-  if (facets.hasAttachment) body.attachments = true
+  if (facets.hasAttachment) body.has_attachment = true
+  // Request attachment path resolution so we can show the icon
+  body.attachments = 'path'
   return body
 }
 
@@ -95,6 +97,11 @@ function Search() {
 
   const [selectedMsg, setSelectedMsg] = useState<MessageResult | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // Add-to-workspace dialog
+  const [wsPickerMsg, setWsPickerMsg] = useState<MessageResult | null>(null)
+  const [wsList, setWsList] = useState<{ id: string; name: string }[]>([])
+  const [wsAdding, setWsAdding] = useState(false)
 
   const offsetRef = useRef(0)
 
@@ -189,6 +196,38 @@ function Search() {
     // TODO: persist to local storage or backend
   }, [])
 
+  const handleAddToWorkspace = useCallback((msg: MessageResult) => {
+    setWsPickerMsg(msg)
+    apiFetch<{ id: string; name: string }[]>('/workspaces')
+      .then((data) => setWsList(Array.isArray(data) ? data : []))
+      .catch(() => setWsList([]))
+  }, [])
+
+  const handlePickWorkspace = useCallback(async (wsId: string) => {
+    if (!wsPickerMsg) return
+    setWsAdding(true)
+    try {
+      await apiFetch(`/workspaces/${wsId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({
+          items: [{
+            type: 'message',
+            title: `${wsPickerMsg.sender_name}: ${wsPickerMsg.content.slice(0, 60)}`,
+            source_id: wsPickerMsg.id,
+            surface: wsPickerMsg.surface,
+            content_preview: wsPickerMsg.content,
+            timestamp: wsPickerMsg.timestamp,
+          }],
+        }),
+      })
+      setWsPickerMsg(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add to workspace')
+    } finally {
+      setWsAdding(false)
+    }
+  }, [wsPickerMsg])
+
   return (
     <div className="page page-search-v2">
       {/* Global search bar */}
@@ -220,14 +259,54 @@ function Search() {
           keyword={keyword}
           onSelect={handleSelectResult}
           onLoadMore={handleLoadMore}
+          onAddToWorkspace={handleAddToWorkspace}
         />
 
         <ContextDrawer
           message={selectedMsg}
           open={drawerOpen}
           onClose={handleCloseDrawer}
+          onAddToWorkspace={handleAddToWorkspace}
         />
       </div>
+
+      {/* Workspace picker dialog */}
+      {wsPickerMsg && (
+        <div className="ws-dialog-overlay" onClick={() => setWsPickerMsg(null)}>
+          <div className="ws-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="section-title">Add to workspace</h3>
+            <p className="text-muted" style={{ marginBottom: 'var(--space-sm, 8px)' }}>
+              {wsPickerMsg.sender_name}: {wsPickerMsg.content.slice(0, 80)}
+              {wsPickerMsg.content.length > 80 ? '...' : ''}
+            </p>
+            {wsList.length === 0 ? (
+              <p className="text-muted">No workspaces found. Create one first.</p>
+            ) : (
+              <ul className="ws-list" style={{ maxHeight: '240px', overflow: 'auto' }}>
+                {wsList.map((ws) => (
+                  <li
+                    key={ws.id}
+                    className="ws-item"
+                    style={{ cursor: wsAdding ? 'wait' : 'pointer' }}
+                    onClick={() => !wsAdding && handlePickWorkspace(ws.id)}
+                  >
+                    <span className="ws-name">{ws.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="btn-group" style={{ marginTop: 'var(--space-sm, 8px)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setWsPickerMsg(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

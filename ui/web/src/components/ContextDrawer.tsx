@@ -6,10 +6,10 @@ import type { MessageResult } from './ResultStream'
 
 interface ContextMessage {
   id: string
-  sender: string
+  sender_name: string
   content: string
   timestamp: string
-  msg_type: string
+  type: string
   attachments?: Attachment[]
 }
 
@@ -23,6 +23,7 @@ interface ContextDrawerProps {
   message: MessageResult | null
   open: boolean
   onClose: () => void
+  onAddToWorkspace?: (msg: MessageResult) => void
 }
 
 function formatTime(ts: string): string {
@@ -38,7 +39,7 @@ function formatTime(ts: string): string {
   }
 }
 
-function ContextDrawer({ message, open, onClose }: ContextDrawerProps) {
+function ContextDrawer({ message, open, onClose, onAddToWorkspace }: ContextDrawerProps) {
   const [context, setContext] = useState<ContextResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -77,7 +78,7 @@ function ContextDrawer({ message, open, onClose }: ContextDrawerProps) {
     if (!context) return
     const allMessages = [...context.before, context.target, ...context.after]
     const text = allMessages
-      .map((m) => `[${m.timestamp}] ${m.sender}: ${m.content}`)
+      .map((m) => `[${m.timestamp}] ${m.sender_name}: ${m.content}`)
       .join('\n')
     const blob = new Blob([text], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
@@ -120,7 +121,7 @@ function ContextDrawer({ message, open, onClose }: ContextDrawerProps) {
         <>
           {/* Conversation info */}
           <div className="context-drawer__conv-info">
-            <span className="context-drawer__conv-name">{message?.conversation}</span>
+            <span className="context-drawer__conv-name">{message?.conversation_title}</span>
             <span className={`surface-tag surface-tag--${message?.surface ?? 'all'}`}>
               {message?.surface}
             </span>
@@ -131,7 +132,7 @@ function ContextDrawer({ message, open, onClose }: ContextDrawerProps) {
             {context.before.map((m) => (
               <div key={m.id} className="context-msg">
                 <div className="context-msg__meta">
-                  <span className="context-msg__sender">{m.sender}</span>
+                  <span className="context-msg__sender">{m.sender_name}</span>
                   <span className="context-msg__time">{formatTime(m.timestamp)}</span>
                 </div>
                 <p className="context-msg__body">{m.content}</p>
@@ -141,7 +142,7 @@ function ContextDrawer({ message, open, onClose }: ContextDrawerProps) {
             {/* Target — highlighted */}
             <div className="context-msg context-msg--target">
               <div className="context-msg__meta">
-                <span className="context-msg__sender">{context.target.sender}</span>
+                <span className="context-msg__sender">{context.target.sender_name}</span>
                 <span className="context-msg__time">{formatTime(context.target.timestamp)}</span>
               </div>
               <p className="context-msg__body">{context.target.content}</p>
@@ -158,7 +159,7 @@ function ContextDrawer({ message, open, onClose }: ContextDrawerProps) {
             {context.after.map((m) => (
               <div key={m.id} className="context-msg">
                 <div className="context-msg__meta">
-                  <span className="context-msg__sender">{m.sender}</span>
+                  <span className="context-msg__sender">{m.sender_name}</span>
                   <span className="context-msg__time">{formatTime(m.timestamp)}</span>
                 </div>
                 <p className="context-msg__body">{m.content}</p>
@@ -168,7 +169,12 @@ function ContextDrawer({ message, open, onClose }: ContextDrawerProps) {
 
           {/* Actions */}
           <div className="context-drawer__actions">
-            <button type="button" className="btn btn-secondary" title="Add to workspace">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              title="Add to workspace"
+              onClick={() => message && onAddToWorkspace?.(message)}
+            >
               + Workspace
             </button>
             <button type="button" className="btn btn-secondary" onClick={handleExportContext}>

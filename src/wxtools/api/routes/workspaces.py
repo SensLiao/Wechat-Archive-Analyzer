@@ -32,6 +32,12 @@ class AddItemsBody(BaseModel):
     items: list[dict[str, Any]]
 
 
+class UpdateItemBody(BaseModel):
+    tags: Optional[list[str]] = None
+    notes: Optional[str] = None
+    title: Optional[str] = None
+
+
 @router.get("/workspaces")
 def list_workspaces(cfg: Config = Depends(get_config)) -> list[dict]:
     """List all workspaces."""
@@ -80,6 +86,24 @@ def add_items(
     """Add items to a workspace."""
     try:
         return workspace_service.add_items(cfg, workspace_id, body.items)
+    except WxToolsError as e:
+        raise HTTPException(
+            status_code=_status_for(e.code),
+            detail={"code": e.code, "message": e.message, "remediation": e.remediation},
+        )
+
+
+@router.patch("/workspaces/{workspace_id}/items/{item_id}")
+def update_item(
+    workspace_id: str,
+    item_id: str,
+    body: UpdateItemBody,
+    cfg: Config = Depends(get_config),
+) -> dict:
+    """Update an item's tags, notes, or title."""
+    try:
+        updates = body.model_dump(exclude_none=True)
+        return workspace_service.update_item(cfg, workspace_id, item_id, updates)
     except WxToolsError as e:
         raise HTTPException(
             status_code=_status_for(e.code),
