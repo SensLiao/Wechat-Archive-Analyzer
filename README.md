@@ -10,13 +10,13 @@
 
 | 能力 | Windows | macOS | Linux |
 |------|---------|-------|-------|
-| 密钥提取（`key extract`） | 支持 | 不支持 | 不支持 |
+| 密钥提取（`key extract`） | 支持 | 支持 | 支持 |
 | 密钥导入（`key set`） | 支持 | 支持 | 支持 |
 | 查询 / 导出 | 支持 | 支持 | 支持 |
 | 密钥保护方式 | DPAPI | Keychain | Secret Service |
 | 备用保护方式 | 密码 | 密码 | 密码 |
 
-**非 Windows 用户：** 先在 Windows 上提取密钥，然后用 `wxtools key set <hex或json文件>` 在任意平台导入使用。
+所有平台均可通过 `wxtools key extract` 提取密钥或 `wxtools key set <hex或json文件>` 导入已有密钥。
 
 ## 安装
 
@@ -27,7 +27,7 @@ pip install -e .
 pip install pycryptodome   # AES 解密依赖
 ```
 
-要求：Python 3.10+。密钥提取需要 Windows 10/11 + 微信 PC 4.x；查询和导出支持 Windows / macOS / Linux。
+要求：Python 3.10+。密钥提取、查询和导出均支持 Windows / macOS / Linux。
 
 如果你在中文 Windows / Anaconda 环境里运行，并且项目路径包含非 ASCII 字符，建议后续统一使用 `python -X utf8 -m wxtools ...`，避免 Python 以 GBK 模式启动时读取 `.pth` 失败。
 
@@ -39,7 +39,7 @@ pip install pycryptodome   # AES 解密依赖
 wxtools key extract
 ```
 
-扫描微信进程内存，找到 17 个数据库的加密密钥并加密存储到 `~/.wxtools/keys/`。首次会询问是否设置密码保护，不设置则使用 Windows DPAPI。
+扫描微信进程内存，找到 17 个数据库的加密密钥并加密存储到 `~/.wxtools/keys/`。首次会询问是否设置密码保护，不设置则使用系统默认密钥存储（Windows DPAPI / macOS Keychain / Linux Secret Service）。
 
 **密钥永久有效**，只需提取一次。后续所有操作不需要管理员权限。
 
@@ -77,7 +77,7 @@ wxtools export --attachments copy -o ./output/   # 同时导出附件文件
 | `wxtools key verify` | 验证密钥有效性 |
 | `wxtools key set <hex/file>` | 手动设置密钥 |
 | `wxtools key set-password` | 设置密码保护 |
-| `wxtools key remove-password` | 移除密码，恢复 DPAPI |
+| `wxtools key remove-password` | 移除密码，恢复系统密钥存储 |
 | `wxtools key unlock` | 临时解锁会话（缓存密钥） |
 | `wxtools key lock [--all]` | 锁定会话 |
 | `wxtools query "关键词"` | 搜索消息 |
@@ -125,7 +125,7 @@ python -X utf8 -m wxtools uninstall-skill --codex
 ## 安全
 
 - 所有数据（密钥、缓存、配置）存储在 `~/.wxtools/`，不上传
-- 密钥用 DPAPI 或用户密码（Fernet + scrypt）加密存储
+- 密钥用系统密钥存储（DPAPI / Keychain / Secret Service）或用户密码（Fernet + scrypt）加密存储
 - 只读取微信数据库副本，不修改原始文件
 - 管理员权限仅用于密钥提取（读取进程内存）
 
@@ -155,7 +155,7 @@ wxtools config set active_account wxid_xxx  # 设置默认账号
 
 - 密钥保护抽象层：统一 DPAPI、macOS Keychain、Linux Secret Service、密码文件四种后端
 - `key set` 成为跨平台标准密钥导入入口
-- 非 Windows 平台执行 `key extract` 时给出明确的平台不支持提示
+- 所有平台均支持密钥提取与导入
 - macOS / Linux 数据目录自动发现适配器
 - CI 扩展至 Windows、macOS、Ubuntu 三平台矩阵
 
@@ -193,7 +193,7 @@ v2 新增功能：
 | 功能 | 说明 |
 |------|------|
 | 密钥提取 | 扫描微信进程内存，HMAC-SHA512 验证，17 个数据库逐一匹配派生密钥 |
-| 密钥存储 | DPAPI（Windows 默认）或用户密码（Fernet + scrypt），首次使用引导选择 |
+| 密钥存储 | 系统密钥存储（DPAPI / Keychain / Secret Service）或用户密码（Fernet + scrypt），首次使用引导选择 |
 | 数据库解密 | SQLCipher 4 直接 AES-256-CBC 解密，原子写入，按 mtime 增量更新 |
 | 消息查询 | 关键词、联系人、群聊、时间范围、消息类型多维筛选，跨分片聚合 |
 | 联系人解析 | 从 contact.db 读取昵称/备注名，Name2Id 表映射发送者 |
