@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(C:/Users/廖神/AppData/Local/Python/pythoncore-3.14-64/Scripts/wxtools.exe cache:*)",
+      "Bash(C:/Users/廖神/AppData/Local/Python/pythoncore-3.14-64/Scripts/wxtools.exe --version)",
+      "Bash($WXTOOLS config:*)",
+      "Bash($WXTOOLS:*)",
+      "Bash(C:/Users/廖神/AppData/Local/Python/pythoncore-3.14-64/Scripts/wxtools.exe config:*)",
+      "Bash($WXTOOLS key:*)",
+      "Bash($WXTOOLS query:*)",
+      "Bash($WXTOOLS export:*)",
+      "Bash(C:/Users/廖神/AppData/Local/Python/pythoncore-3.14-64/Scripts/wxtools.exe -vv cache build-index)",
+      "Bash(sqlite3 ~/.wxtools/cache/wxid_p50w4ib5rti432/message/message_0.db \"PRAGMA table_info\\(Msg_b902cd5b77ad9ff9024e5c526c13189c\\)\")",
+      "Bash(sqlite3:*)",
+      "Bash($WXTOOLS uninstall-skill:*)",
+      "Bash(C:/Users/廖神/AppData/Local/Python/pythoncore-3.14-64/Scripts/wxtools.exe install-skill:*)",
+      "Bash(\"C:/Users/廖神/AppData/Local/Python/pythoncore-3.14-64/Scripts/pytest.exe\" tests/ -v)",
+      "Bash(\"C:/Users/廖神/AppData/Local/Python/pythoncore-3.14-64/Scripts/pytest.exe\" tests/ -q)",
+      "Bash(C:/Users/廖神/AppData/Local/Python/pythoncore-3.14-64/Scripts/wxtools.exe query:*)"
+    ]
+  }
+}
