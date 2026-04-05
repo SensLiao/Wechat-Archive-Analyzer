@@ -11,24 +11,20 @@ from wxtools.cli.main import cli
 PAGE_SIZE = 4096
 SALT_SIZE = 16
 KEY_SIZE = 32
-RESERVE_SIZE = 80
+HMAC_SIZE = 64
 
 
 def _build_fake_db_page(enc_key_hex: str) -> bytes:
-    from Crypto.Cipher import AES
     enc_key = bytes.fromhex(enc_key_hex)
     salt = b"\x07" * SALT_SIZE
     hmac_salt = bytes(a ^ 0x3A for a in salt)
-    content = b"\x00" * (PAGE_SIZE - SALT_SIZE - RESERVE_SIZE)
-    iv = b"\x00" * 16
-    cipher = AES.new(enc_key, AES.MODE_CBC, iv)
-    encrypted_content = cipher.encrypt(content)
+    hmac_input = b"\x00" * (PAGE_SIZE - SALT_SIZE - HMAC_SIZE)
     hmac_key = hashlib.pbkdf2_hmac("sha512", enc_key, hmac_salt, 2, KEY_SIZE)
-    h = hmac_mod.new(hmac_key, encrypted_content, hashlib.sha512)
+    h = hmac_mod.new(hmac_key, hmac_input, hashlib.sha512)
     h.update(struct.pack("<I", 1))
     hmac_value = h.digest()
-    padding_size = RESERVE_SIZE - 16 - 64
-    page = salt + encrypted_content + iv + hmac_value + b"\x00" * padding_size
+    page = salt + hmac_input + hmac_value
+    assert len(page) == PAGE_SIZE
     return page
 
 

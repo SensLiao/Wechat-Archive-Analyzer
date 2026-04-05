@@ -2,8 +2,24 @@
 
 from __future__ import annotations
 
+import os
+import sys
 
 import click
+
+# Force UTF-8 on Windows to avoid GBK encoding errors with emoji/CJK
+if sys.platform == "win32":
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
 
 import wxtools
 

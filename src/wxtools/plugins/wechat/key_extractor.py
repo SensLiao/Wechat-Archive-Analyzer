@@ -62,6 +62,10 @@ def find_wechat_pid() -> int:
     return candidates[0][0]
 
 
+# DBs whose keys are not stored in local process memory (e.g. server-side only)
+_SKIP_DBS = {"favorite/favorite.db"}
+
+
 def _load_db_verification_data(db_dir: str) -> Dict[str, dict]:
     """Load salt and HMAC data from all DB files for verification."""
     dbs = {}
@@ -70,7 +74,9 @@ def _load_db_verification_data(db_dir: str) -> Dict[str, dict]:
             if not f.endswith(".db"):
                 continue
             path = os.path.join(root, f)
-            rel = os.path.relpath(path, db_dir)
+            rel = os.path.relpath(path, db_dir).replace("\\", "/")
+            if rel in _SKIP_DBS:
+                continue
             try:
                 with open(path, "rb") as fh:
                     page1 = fh.read(PAGE_SIZE)

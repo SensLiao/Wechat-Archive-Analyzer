@@ -94,10 +94,12 @@ class FtsIndex:
 
     def _iter_message_dbs(self) -> List[Path]:
         """Find all message DB shards in the cache directory."""
-        # WeChat 4.x layout: message/message_N.db
         msg_dir = self._cache_dir / "message"
         if msg_dir.is_dir():
-            return sorted(msg_dir.glob("message_*.db"))
+            # WeChat 4.x: message_N.db + biz_message_N.db (exclude fts/resource)
+            shards = [p for p in sorted(msg_dir.glob("message_[0-9]*.db"))]
+            shards.extend(sorted(msg_dir.glob("biz_message_*.db")))
+            return shards
         # WeChat 3.x fallback: MSG*.db in cache root
         return sorted(self._cache_dir.glob("MSG*.db"))
 
@@ -131,23 +133,36 @@ class FtsIndex:
         tables: List[str],
     ) -> int:
         """Index WeChat 4.x Msg_* tables."""
+        # Build Name2Id lookup: integer id -> wxid string
+        name2id: Dict[int, str] = {}
+        if "Name2Id" in tables:
+            try:
+                for row in src.execute("SELECT UsrName, local_id FROM Name2Id").fetchall():
+                    name2id[row[1]] = row[0]
+            except sqlite3.OperationalError:
+                pass
+
         count = 0
         msg_tables = [t for t in tables if t.startswith("Msg_")]
         for table in msg_tables:
             try:
                 rows = src.execute(
-                    f"SELECT local_id, server_id, sender_wxid, message_content, create_time "
+                    f"SELECT local_id, server_id, real_sender_id, message_content, create_time "
                     f"FROM [{table}]"
                 ).fetchall()
             except sqlite3.OperationalError:
                 logger.debug("Skipping table %s: missing expected columns", table)
                 continue
 
-            for local_id, server_id, sender, content, ts in rows:
+            for local_id, server_id, sender_id, content, ts in rows:
+                # Skip blob/compressed content, only index text
+                if not isinstance(content, str):
+                    continue
+                sender = name2id.get(sender_id, str(sender_id)) if sender_id else ""
                 fts_conn.execute(
                     "INSERT INTO messages_fts(sender, content, db_path, local_id, server_id, create_time) "
                     "VALUES (?, ?, ?, ?, ?, ?)",
-                    (sender or "", _tokenize_cjk(content or ""), str(db_path), local_id, server_id, ts),
+                    (sender, _tokenize_cjk(content), str(db_path), local_id, server_id, ts),
                 )
                 count += 1
         return count

@@ -10,16 +10,17 @@ def cache_with_messages(tmp_path):
     msg_dir = cache_dir / "message"
     msg_dir.mkdir(parents=True)
     conn = sqlite3.connect(msg_dir / "message_0.db")
-    conn.execute("CREATE TABLE Name2Id (user_name TEXT)")
-    conn.execute("INSERT INTO Name2Id VALUES ('friend1')")
+    # WeChat 4.x Name2Id: UsrName + local_id
+    conn.execute("CREATE TABLE Name2Id (UsrName TEXT, local_id INTEGER)")
+    conn.execute("INSERT INTO Name2Id VALUES ('friend1', 1)")
     table_hash = hashlib.md5(b"friend1").hexdigest()
     table = f"Msg_{table_hash}"
     conn.execute(f"""CREATE TABLE {table} (
         local_id INTEGER PRIMARY KEY, server_id INTEGER, local_type INTEGER,
-        sender_wxid TEXT, message_content TEXT, create_time INTEGER, display_content TEXT
+        real_sender_id INTEGER, message_content TEXT, create_time INTEGER
     )""")
     for i in range(100):
-        conn.execute(f"INSERT INTO {table} VALUES (?,?,1,'friend1',?,?,'')",
+        conn.execute(f"INSERT INTO {table} VALUES (?,?,1,1,?,?)",
             (i+1, 2000+i, f"今天天气{'很好' if i%2==0 else '不好'}", 1700000000+i))
     conn.commit()
     conn.close()

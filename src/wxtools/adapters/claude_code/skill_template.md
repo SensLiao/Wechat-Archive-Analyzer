@@ -169,6 +169,33 @@ python -X utf8 -m wxtools --json query --sql "SELECT * FROM message LIMIT 10"
 - **搜索索引**：如果数据量大（万条以上）且用户需要频繁搜索，主动调用 `cache build-index` 加速后续查询
 - **密钥验证**：如果查询/导出报 `DB_DECRYPT_FAILED`，先 `key verify` 确认密钥状态，再决定是否重新提取
 
+## GUI / 本地 App 指引（当版本支持时）
+
+当用户明确表示：
+
+- 想打开图形界面
+- 不想用命令行
+- 想在可视化界面里继续看结果
+- 想知道本地 app 怎么启动
+
+先检测 GUI 启动命令是否存在：
+
+```bash
+python -X utf8 -m wxtools app --help
+```
+
+处理规则：
+
+- 如果命令存在：指导用户运行 `python -X utf8 -m wxtools app start`
+- 如果用户希望启动后自动打开浏览器：指导使用 `python -X utf8 -m wxtools app start --open`
+- 如果命令不存在：明确说明“当前安装版本还没有 GUI 启动入口”，继续使用 CLI，或建议升级到带 GUI 的版本
+
+如果未来用户安装的是打包后的桌面版（exe / 安装包），优先告诉用户直接打开桌面应用；不要让桌面版用户再去手工启动 CLI。
+
+当 skill 已经帮用户找到一批结果，且用户想继续筛选、整理、加入工作区或模板化导出时，应主动建议：
+
+> 这一步更适合在 GUI 里继续做。我可以告诉你怎么启动本地界面。
+
 ## 处理查询结果
 
 ### 消息展示格式

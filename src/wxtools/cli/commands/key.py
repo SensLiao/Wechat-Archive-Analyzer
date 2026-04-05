@@ -307,7 +307,7 @@ def verify(ctx, account):
             ))
         else:
             if result["failed"] == 0 and result["total"] > 0:
-                click.echo(f"密钥验证成功 \u2713 ({result['passed']}/{result['total']} 数据库通过)")
+                click.echo(f"密钥验证成功 ({result['passed']}/{result['total']} 数据库通过)")
             elif result["total"] == 0:
                 click.echo("警告: 未找到可验证的数据库文件。")
             else:
@@ -455,7 +455,7 @@ def set_key(ctx, key_input, account):
                 command="key set",
             ))
         else:
-            click.echo(f"密钥已保存 \u2713 (账号: {wxid}, 保护方式: {protection})")
+            click.echo(f"密钥已保存 (账号: {wxid}, 保护方式: {protection})")
 
     except (OSError, ValueError) as e:
         if state.json_mode:

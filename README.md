@@ -1,8 +1,8 @@
 # wxtools — 微信聊天记录解密与查询工具
 
-> **当前版本：v0.4.0**
+> **当前版本：v0.4.1**
 
-本地解密微信 PC 版（4.x / 3.x）的 SQLCipher 加密数据库，支持关键词搜索、全文检索、按联系人/时间筛选，导出 JSON / CSV / HTML（聊天气泡），附件自动解析与导出。v0.3 新增公众号消息和朋友圈查询导出。所有数据留在本地。
+本地解密微信 PC 版（4.x / 3.x）的 SQLCipher 加密数据库，支持关键词搜索、全文检索、按联系人/时间筛选，导出 JSON / CSV / HTML（聊天气泡），附件自动解析与导出。支持公众号消息和朋友圈查询导出。所有数据留在本地。
 
 提供 Claude Code 和 Codex 的 `/wechat` skill，可用自然语言查询聊天记录。
 
@@ -158,7 +158,15 @@ wxtools config set active_account wxid_xxx  # 设置默认账号
 
 ## 版本历史
 
-### v0.4.0 — 跨平台（当前版本）
+### v0.4.1 — E2E 验证与修复（当前版本）
+
+- 修复 `key verify` 在 Windows 上始终返回 0/N 的问题（路径分隔符不匹配 + HMAC 输入范围错误）
+- 修复 `cache build-index` 索引 0 条消息的问题（4.x 列名 `real_sender_id` 适配 + blob 内容跳过）
+- 修复 Windows GBK 终端输出 emoji/CJK 崩溃（强制 UTF-8 输出）
+- `key extract` 跳过 `favorite.db`（密钥存于服务器端，本地内存不存在）
+- FTS 索引现在包含公众号消息（`biz_message_*.db`）
+
+### v0.4.0 — 跨平台
 
 - 密钥保护抽象层：统一 DPAPI、macOS Keychain、Linux Secret Service、密码文件四种后端
 - `key set` 成为跨平台标准密钥导入入口

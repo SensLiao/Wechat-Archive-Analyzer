@@ -14,7 +14,7 @@ logger = logging.getLogger("wxtools.key_validator")
 PAGE_SIZE = 4096
 SALT_SIZE = 16
 KEY_SIZE = 32
-RESERVE_SIZE = 80
+HMAC_SIZE = 64  # SHA-512
 
 
 def _load_db_info(db_path: Path) -> dict:
@@ -24,13 +24,11 @@ def _load_db_info(db_path: Path) -> dict:
     page = raw[:PAGE_SIZE]
     salt = page[:SALT_SIZE]
     hmac_salt = bytes(a ^ 0x3A for a in salt)
-    content_end = PAGE_SIZE - RESERVE_SIZE
-    encrypted_content = page[SALT_SIZE:content_end]
-    reserve_start = content_end
-    hmac_stored = page[reserve_start + 16 : reserve_start + 16 + 64]
+    hmac_input = page[SALT_SIZE : PAGE_SIZE - HMAC_SIZE]
+    hmac_stored = page[PAGE_SIZE - HMAC_SIZE : PAGE_SIZE]
     return {
         "hmac_salt": hmac_salt,
-        "hmac_input": encrypted_content,
+        "hmac_input": hmac_input,
         "hmac_stored": hmac_stored,
     }
 
@@ -53,7 +51,8 @@ def validate_key_for_db(key_hex: str, db_path: Path) -> bool:
 def validate_key_for_account(key_data: str, db_dir: Path) -> Dict[str, int]:
     key_data = key_data.strip()
     if key_data.startswith("{"):
-        key_map: Dict[str, str] = json.loads(key_data)
+        raw_map: Dict[str, str] = json.loads(key_data)
+        key_map = {k.replace("\\", "/"): v for k, v in raw_map.items()}
     else:
         key_map = {}
         for db_file in sorted(db_dir.rglob("*.db")):
