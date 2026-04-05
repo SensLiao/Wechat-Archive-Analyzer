@@ -1,193 +1,460 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
+import ExportTemplatePicker from '@/components/ExportTemplatePicker'
+import type { ExportTemplate } from '@/components/ExportTemplatePicker'
+import RecentExports from '@/components/RecentExports'
+import type { ExportRecord } from '@/components/RecentExports'
 
-interface ExportRecord {
+type ExportSource = 'search' | 'workspace' | 'contact' | 'custom'
+type ExportFormat = 'html' | 'csv' | 'json'
+
+interface ExportApiResponse {
   id: string
   format: string
   source: string
   record_count: number
-  file_size: string
+  file_count?: number
   created: string
-  status: string
+  status: 'completed' | 'in_progress' | 'failed'
+  output_dir?: string
 }
 
-type ExportFormat = 'json' | 'csv' | 'html'
-type ExportSource = 'search' | 'workspace' | 'chat'
-
 function Exports() {
+  // Wizard step: 1=source, 2=template, 3=format, 4=export
+  const [step, setStep] = useState(1)
+
+  // Step 1: Source
+  const [source, setSource] = useState<ExportSource>('search')
+  const [sourceId, setSourceId] = useState('')
+  const [contact, setContact] = useState('')
+  const [conversation, setConversation] = useState('')
+  const [since, setSince] = useState('')
+  const [until, setUntil] = useState('')
+
+  // Step 2: Template
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [serverTemplates, setServerTemplates] = useState<ExportTemplate[]>([])
+
+  // Step 3: Format
+  const [format, setFormat] = useState<ExportFormat>('html')
+  const [attachments, setAttachments] = useState(false)
+  const [outputDir, setOutputDir] = useState('')
+
+  // Step 4: Export state
+  const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState<string | null>(null)
+
+  // Recent exports
   const [recentExports, setRecentExports] = useState<ExportRecord[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loadingRecent, setLoadingRecent] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Export form state
-  const [source, setSource] = useState<ExportSource>('search')
-  const [format, setFormat] = useState<ExportFormat>('json')
-  const [sourceId, setSourceId] = useState('')
-  const [exporting, setExporting] = useState(false)
+  // Read URL params for pre-filled source
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const urlSource = params.get('source')
+    const urlSourceId = params.get('source_id')
+    if (urlSource && ['search', 'workspace', 'contact', 'custom'].includes(urlSource)) {
+      setSource(urlSource as ExportSource)
+      if (urlSourceId) setSourceId(urlSourceId)
+      setStep(2) // skip to template if source is pre-filled
+    }
+  }, [])
 
+  // Load server templates
+  useEffect(() => {
+    apiFetch<{ templates: ExportTemplate[] }>('/export/templates')
+      .then((data) => setServerTemplates(data.templates))
+      .catch(() => { /* use built-in templates */ })
+  }, [])
+
+  // Load recent exports
   useEffect(() => {
     apiFetch<{ exports: ExportRecord[] }>('/exports')
       .then((data) => setRecentExports(data.exports))
       .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false))
+      .finally(() => setLoadingRecent(false))
   }, [])
 
   const handleExport = async () => {
-    if (!sourceId.trim()) return
     setExporting(true)
+    setExportProgress('\u6B63\u5728\u51C6\u5907\u5BFC\u51FA...')
     setError(null)
+
+    const body: Record<string, unknown> = {
+      format,
+      output_dir: outputDir || undefined,
+      template: selectedTemplate || undefined,
+      attachments: attachments || undefined,
+      surface: source,
+    }
+
+    if (source === 'contact') {
+      body.contact = contact || undefined
+    } else if (source === 'workspace') {
+      body.conversation = sourceId || undefined
+    } else if (source === 'custom') {
+      body.contact = contact || undefined
+      body.conversation = conversation || undefined
+    }
+
+    if (since) body.since = since
+    if (until) body.until = until
+
     try {
-      const result = await apiFetch<ExportRecord>('/exports', {
+      setExportProgress('\u5BFC\u51FA\u4E2D...')
+      const result = await apiFetch<ExportApiResponse>('/export', {
         method: 'POST',
-        body: JSON.stringify({ source, source_id: sourceId, format }),
+        body: JSON.stringify(body),
       })
-      setRecentExports((prev) => [result, ...prev])
-      setSourceId('')
+
+      const newRecord: ExportRecord = {
+        id: result.id,
+        template: selectedTemplate || undefined,
+        format: result.format,
+        source: result.source,
+        record_count: result.record_count,
+        file_count: result.file_count,
+        created: result.created,
+        status: result.status,
+        output_dir: result.output_dir,
+      }
+      setRecentExports((prev) => [newRecord, ...prev])
+      setExportProgress('\u5BFC\u51FA\u5B8C\u6210')
     } catch (err) {
-      setError(err instanceof Error ? err.message : '导出失败')
+      setError(err instanceof Error ? err.message : '\u5BFC\u51FA\u5931\u8D25')
+      setExportProgress(null)
     } finally {
       setExporting(false)
     }
   }
 
+  const handleReExport = (record: ExportRecord) => {
+    if (record.template) setSelectedTemplate(record.template)
+    setFormat(record.format as ExportFormat)
+    setStep(3)
+  }
+
+  const canProceedStep1 = source === 'search' || source === 'workspace'
+    ? sourceId.trim().length > 0
+    : source === 'contact'
+      ? contact.trim().length > 0
+      : true
+
+  const canProceedStep2 = selectedTemplate !== null
+
   return (
     <div className="page page-exports">
-      <h1 className="page-title">导出</h1>
+      <h1 className="page-title">\u5BFC\u51FA</h1>
 
       {error && <p className="text-error">{error}</p>}
 
-      {/* Export Flow */}
-      <section className="export-flow">
-        <div className="export-step">
-          <h3 className="section-title">1. 选择来源</h3>
-          <div className="radio-group">
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="source"
-                value="search"
-                checked={source === 'search'}
-                onChange={() => setSource('search')}
-              />
-              搜索结果
-            </label>
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="source"
-                value="workspace"
-                checked={source === 'workspace'}
-                onChange={() => setSource('workspace')}
-              />
-              工作区
-            </label>
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="source"
-                value="chat"
-                checked={source === 'chat'}
-                onChange={() => setSource('chat')}
-              />
-              会话
-            </label>
-          </div>
-          <input
-            type="text"
-            className="facet-input"
-            placeholder={`输入${source === 'search' ? '搜索ID' : source === 'workspace' ? '工作区ID' : '会话名称'}...`}
-            value={sourceId}
-            onChange={(e) => setSourceId(e.target.value)}
-          />
+      {/* Step wizard */}
+      <div className="export-wizard">
+        {/* Step indicators */}
+        <div className="wizard-steps">
+          {[1, 2, 3, 4].map((s) => (
+            <div
+              key={s}
+              className={`wizard-step-indicator ${step === s ? 'wizard-step-active' : ''} ${step > s ? 'wizard-step-done' : ''}`}
+              onClick={() => { if (s < step) setStep(s) }}
+            >
+              <span className="wizard-step-num">{step > s ? '\u2713' : s}</span>
+              <span className="wizard-step-label">
+                {s === 1 && '\u6570\u636E\u6765\u6E90'}
+                {s === 2 && '\u9009\u62E9\u6A21\u677F'}
+                {s === 3 && '\u683C\u5F0F\u9009\u9879'}
+                {s === 4 && '\u6267\u884C\u5BFC\u51FA'}
+              </span>
+            </div>
+          ))}
         </div>
 
-        <div className="export-step">
-          <h3 className="section-title">2. 选择格式</h3>
-          <div className="radio-group">
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="format"
-                value="json"
-                checked={format === 'json'}
-                onChange={() => setFormat('json')}
-              />
-              JSON
-            </label>
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="format"
-                value="csv"
-                checked={format === 'csv'}
-                onChange={() => setFormat('csv')}
-              />
-              CSV
-            </label>
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="format"
-                value="html"
-                checked={format === 'html'}
-                onChange={() => setFormat('html')}
-              />
-              HTML
-            </label>
-          </div>
-        </div>
+        {/* Step 1: Source selection */}
+        {step === 1 && (
+          <div className="export-step-content">
+            <h3 className="section-title">\u9009\u62E9\u6570\u636E\u6765\u6E90</h3>
+            <div className="export-source-grid">
+              <button
+                type="button"
+                className={`export-source-card ${source === 'search' ? 'export-source-selected' : ''}`}
+                onClick={() => setSource('search')}
+              >
+                <span className="export-source-icon">{'\ud83d\udd0d'}</span>
+                <span className="export-source-name">\u5F53\u524D\u641C\u7D22</span>
+                <span className="export-source-desc">\u5BFC\u51FA\u641C\u7D22\u7ED3\u679C</span>
+              </button>
+              <button
+                type="button"
+                className={`export-source-card ${source === 'workspace' ? 'export-source-selected' : ''}`}
+                onClick={() => setSource('workspace')}
+              >
+                <span className="export-source-icon">{'\ud83d\udcc1'}</span>
+                <span className="export-source-name">\u5DE5\u4F5C\u533A</span>
+                <span className="export-source-desc">\u5BFC\u51FA\u5DE5\u4F5C\u533A\u5185\u5BB9</span>
+              </button>
+              <button
+                type="button"
+                className={`export-source-card ${source === 'contact' ? 'export-source-selected' : ''}`}
+                onClick={() => setSource('contact')}
+              >
+                <span className="export-source-icon">{'\ud83d\udc64'}</span>
+                <span className="export-source-name">\u8054\u7CFB\u4EBA</span>
+                <span className="export-source-desc">\u5BFC\u51FA\u6307\u5B9A\u8054\u7CFB\u4EBA\u7684\u804A\u5929</span>
+              </button>
+              <button
+                type="button"
+                className={`export-source-card ${source === 'custom' ? 'export-source-selected' : ''}`}
+                onClick={() => setSource('custom')}
+              >
+                <span className="export-source-icon">\u2699</span>
+                <span className="export-source-name">\u81EA\u5B9A\u4E49</span>
+                <span className="export-source-desc">\u81EA\u5B9A\u4E49\u7B5B\u9009\u6761\u4EF6</span>
+              </button>
+            </div>
 
-        <div className="export-step">
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={handleExport}
-            disabled={exporting || !sourceId.trim()}
-          >
-            {exporting ? '导出中...' : '开始导出'}
-          </button>
-        </div>
-      </section>
+            {/* Source-specific inputs */}
+            <div className="export-source-inputs">
+              {(source === 'search' || source === 'workspace') && (
+                <label className="facet-label">
+                  {source === 'search' ? '\u641C\u7D22 ID' : '\u5DE5\u4F5C\u533A ID'}
+                  <input
+                    type="text"
+                    className="facet-input"
+                    value={sourceId}
+                    onChange={(e) => setSourceId(e.target.value)}
+                    placeholder={`\u8F93\u5165${source === 'search' ? '\u641C\u7D22' : '\u5DE5\u4F5C\u533A'} ID...`}
+                  />
+                </label>
+              )}
+              {(source === 'contact' || source === 'custom') && (
+                <label className="facet-label">
+                  \u8054\u7CFB\u4EBA
+                  <input
+                    type="text"
+                    className="facet-input"
+                    value={contact}
+                    onChange={(e) => setContact(e.target.value)}
+                    placeholder="\u8F93\u5165\u8054\u7CFB\u4EBA\u540D\u79F0\u6216 wxid..."
+                  />
+                </label>
+              )}
+              {source === 'custom' && (
+                <label className="facet-label">
+                  \u4F1A\u8BDD
+                  <input
+                    type="text"
+                    className="facet-input"
+                    value={conversation}
+                    onChange={(e) => setConversation(e.target.value)}
+                    placeholder="\u8F93\u5165\u4F1A\u8BDD\u540D\u79F0..."
+                  />
+                </label>
+              )}
+              {(source === 'contact' || source === 'custom') && (
+                <div className="export-date-range">
+                  <label className="facet-label">
+                    \u5F00\u59CB\u65E5\u671F
+                    <input
+                      type="date"
+                      className="facet-input"
+                      value={since}
+                      onChange={(e) => setSince(e.target.value)}
+                    />
+                  </label>
+                  <label className="facet-label">
+                    \u7ED3\u675F\u65E5\u671F
+                    <input
+                      type="date"
+                      className="facet-input"
+                      value={until}
+                      onChange={(e) => setUntil(e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setStep(2)}
+              disabled={!canProceedStep1}
+            >
+              \u4E0B\u4E00\u6B65: \u9009\u62E9\u6A21\u677F
+            </button>
+          </div>
+        )}
+
+        {/* Step 2: Template selection */}
+        {step === 2 && (
+          <div className="export-step-content">
+            <h3 className="section-title">\u9009\u62E9\u5BFC\u51FA\u6A21\u677F</h3>
+            <ExportTemplatePicker
+              selectedTemplate={selectedTemplate}
+              onSelect={setSelectedTemplate}
+              templates={serverTemplates.length > 0 ? serverTemplates : undefined}
+            />
+            <div className="btn-group" style={{ marginTop: 'var(--space-lg)' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setStep(3)}
+                disabled={!canProceedStep2}
+              >
+                \u4E0B\u4E00\u6B65: \u683C\u5F0F\u9009\u9879
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setStep(1)}
+              >
+                \u4E0A\u4E00\u6B65
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Format and options */}
+        {step === 3 && (
+          <div className="export-step-content">
+            <h3 className="section-title">\u683C\u5F0F\u4E0E\u9009\u9879</h3>
+
+            <div className="export-format-group">
+              <h4 className="col-title">\u8F93\u51FA\u683C\u5F0F</h4>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="format"
+                    value="html"
+                    checked={format === 'html'}
+                    onChange={() => setFormat('html')}
+                  />
+                  HTML
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="format"
+                    value="csv"
+                    checked={format === 'csv'}
+                    onChange={() => setFormat('csv')}
+                  />
+                  CSV
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="format"
+                    value="json"
+                    checked={format === 'json'}
+                    onChange={() => setFormat('json')}
+                  />
+                  JSON
+                </label>
+              </div>
+            </div>
+
+            <div className="export-options">
+              <label className="radio-label">
+                <input
+                  type="checkbox"
+                  checked={attachments}
+                  onChange={(e) => setAttachments(e.target.checked)}
+                />
+                \u5305\u542B\u9644\u4EF6 (\u56FE\u7247\u3001\u6587\u4EF6\u3001\u89C6\u9891)
+              </label>
+            </div>
+
+            <label className="facet-label">
+              \u8F93\u51FA\u76EE\u5F55 (\u53EF\u9009)
+              <input
+                type="text"
+                className="facet-input"
+                value={outputDir}
+                onChange={(e) => setOutputDir(e.target.value)}
+                placeholder="\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u76EE\u5F55..."
+              />
+            </label>
+
+            <div className="btn-group" style={{ marginTop: 'var(--space-lg)' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setStep(4)}
+              >
+                \u4E0B\u4E00\u6B65: \u6267\u884C\u5BFC\u51FA
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setStep(2)}
+              >
+                \u4E0A\u4E00\u6B65
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: Execute */}
+        {step === 4 && (
+          <div className="export-step-content">
+            <h3 className="section-title">\u786E\u8BA4\u5E76\u5BFC\u51FA</h3>
+
+            <div className="export-summary">
+              <dl className="settings-dl">
+                <dt>\u6765\u6E90</dt>
+                <dd>{source}{sourceId ? ` (${sourceId})` : ''}{contact ? ` - ${contact}` : ''}</dd>
+                <dt>\u6A21\u677F</dt>
+                <dd>{selectedTemplate || '\u672A\u9009\u62E9'}</dd>
+                <dt>\u683C\u5F0F</dt>
+                <dd>{format.toUpperCase()}</dd>
+                <dt>\u9644\u4EF6</dt>
+                <dd>{attachments ? '\u5305\u542B' : '\u4E0D\u5305\u542B'}</dd>
+                {outputDir && (
+                  <>
+                    <dt>\u8F93\u51FA\u76EE\u5F55</dt>
+                    <dd className="mono">{outputDir}</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+
+            {exportProgress && (
+              <p className="export-progress-text">{exportProgress}</p>
+            )}
+
+            <div className="btn-group" style={{ marginTop: 'var(--space-lg)' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleExport}
+                disabled={exporting}
+              >
+                {exporting ? '\u5BFC\u51FA\u4E2D...' : '\u5F00\u59CB\u5BFC\u51FA'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setStep(3)}
+                disabled={exporting}
+              >
+                \u4E0A\u4E00\u6B65
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Recent Exports */}
       <section className="recent-section">
-        <h2 className="section-title">导出历史</h2>
-        {loading && <p className="text-muted">加载中...</p>}
-        {recentExports.length === 0 && !loading && (
-          <p className="text-muted">暂无导出记录</p>
-        )}
-        <div className="export-table-wrap">
-          {recentExports.length > 0 && (
-            <table className="export-table">
-              <thead>
-                <tr>
-                  <th>格式</th>
-                  <th>来源</th>
-                  <th>记录数</th>
-                  <th>文件大小</th>
-                  <th>状态</th>
-                  <th>时间</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentExports.map((exp) => (
-                  <tr key={exp.id}>
-                    <td>{exp.format.toUpperCase()}</td>
-                    <td>{exp.source}</td>
-                    <td>{exp.record_count}</td>
-                    <td>{exp.file_size}</td>
-                    <td>
-                      <span className={`status-badge status-${exp.status}`}>
-                        {exp.status}
-                      </span>
-                    </td>
-                    <td>{exp.created}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <h2 className="section-title">\u5BFC\u51FA\u5386\u53F2</h2>
+        <RecentExports
+          exports={recentExports}
+          loading={loadingRecent}
+          onReExport={handleReExport}
+        />
       </section>
     </div>
   )

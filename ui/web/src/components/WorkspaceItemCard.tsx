@@ -1,0 +1,165 @@
+import { useState } from 'react'
+
+export interface WorkspaceItemData {
+  id: string
+  type: 'message' | 'article' | 'moment' | 'note'
+  title: string
+  source_id?: string
+  surface?: string
+  content_preview?: string
+  tags?: string[]
+  notes?: string
+  created?: string
+}
+
+interface WorkspaceItemCardProps {
+  item: WorkspaceItemData
+  selected?: boolean
+  onSelect: (item: WorkspaceItemData) => void
+  onRemove: (itemId: string) => void
+  onEditNotes: (itemId: string, notes: string) => void
+}
+
+const TYPE_ICONS: Record<WorkspaceItemData['type'], string> = {
+  message: '\u2709',   // envelope
+  article: '\u{1F4C4}', // page facing up
+  moment: '\u{1F4F7}',  // camera
+  note: '\u{1F4DD}',    // memo
+}
+
+const TYPE_LABELS: Record<WorkspaceItemData['type'], string> = {
+  message: '\u6D88\u606F',
+  article: '\u6587\u7AE0',
+  moment: '\u670B\u53CB\u5708',
+  note: '\u7B14\u8BB0',
+}
+
+const SURFACE_COLORS: Record<string, string> = {
+  chat: 'surface-chat',
+  group: 'surface-group',
+  moment: 'surface-moment',
+  channel: 'surface-channel',
+}
+
+function WorkspaceItemCard({
+  item,
+  selected = false,
+  onSelect,
+  onRemove,
+  onEditNotes,
+}: WorkspaceItemCardProps) {
+  const [hovered, setHovered] = useState(false)
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [noteDraft, setNoteDraft] = useState(item.notes || '')
+
+  const handleSaveNotes = () => {
+    onEditNotes(item.id, noteDraft)
+    setEditingNotes(false)
+  }
+
+  const handleCancelNotes = () => {
+    setNoteDraft(item.notes || '')
+    setEditingNotes(false)
+  }
+
+  return (
+    <div
+      className={`ws-item-card ${selected ? 'ws-item-card-selected' : ''}`}
+      onClick={() => onSelect(item)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Header row: type icon + title + actions */}
+      <div className="ws-item-card-header">
+        <span className="ws-item-type-icon" title={TYPE_LABELS[item.type]}>
+          {TYPE_ICONS[item.type]}
+        </span>
+        <span className="ws-item-title">{item.title}</span>
+        {hovered && (
+          <span className="ws-item-actions">
+            <button
+              type="button"
+              className="ws-item-action-btn"
+              title="\u7F16\u8F91\u5907\u6CE8"
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditingNotes(true)
+              }}
+            >
+              \u270F
+            </button>
+            <button
+              type="button"
+              className="ws-item-action-btn ws-item-action-danger"
+              title="\u79FB\u9664"
+              onClick={(e) => {
+                e.stopPropagation()
+                onRemove(item.id)
+              }}
+            >
+              \u2715
+            </button>
+          </span>
+        )}
+      </div>
+
+      {/* Surface tag */}
+      {item.surface && (
+        <span className={`ws-item-surface ${SURFACE_COLORS[item.surface] || ''}`}>
+          {item.surface}
+        </span>
+      )}
+
+      {/* Content preview */}
+      {item.content_preview && (
+        <p className="ws-item-preview">{item.content_preview}</p>
+      )}
+
+      {/* Full preview on hover */}
+      {hovered && item.content_preview && item.content_preview.length > 80 && (
+        <div className="ws-item-full-preview">
+          {item.content_preview}
+        </div>
+      )}
+
+      {/* Timestamp */}
+      {item.created && (
+        <span className="ws-item-time">{item.created}</span>
+      )}
+
+      {/* Tags */}
+      {item.tags && item.tags.length > 0 && (
+        <div className="ws-item-tags">
+          {item.tags.map((tag) => (
+            <span key={tag} className="ws-item-tag">{tag}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Notes */}
+      {editingNotes ? (
+        <div className="ws-item-note-editor" onClick={(e) => e.stopPropagation()}>
+          <textarea
+            className="ws-item-note-input"
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value)}
+            placeholder="\u6DFB\u52A0\u5907\u6CE8..."
+            rows={2}
+          />
+          <div className="btn-group">
+            <button type="button" className="btn btn-primary" onClick={handleSaveNotes}>
+              \u4FDD\u5B58
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={handleCancelNotes}>
+              \u53D6\u6D88
+            </button>
+          </div>
+        </div>
+      ) : (
+        item.notes && <p className="ws-item-note">{item.notes}</p>
+      )}
+    </div>
+  )
+}
+
+export default WorkspaceItemCard
