@@ -1,3 +1,3 @@
 """wxtools — Local-first WeChat chat history decryption and analysis toolkit."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

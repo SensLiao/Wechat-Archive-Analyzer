@@ -540,7 +540,7 @@ def set_password(ctx, account):
 @click.option("--account", help="Target account wxid.")
 @click.pass_context
 def remove_password(ctx, account):
-    """Remove password protection (revert to DPAPI)."""
+    """Remove password protection (revert to system secret backend)."""
     cfg, ks, state = _get_config_and_keystore(ctx)
     wxid = _resolve_account(cfg, account)
 
@@ -584,11 +584,11 @@ def remove_password(ctx, account):
 
         if state.json_mode:
             print_json(success_envelope(
-                {"account": wxid, "protection": "dpapi"},
+                {"account": wxid, "protection": default_backend},
                 command="key remove-password",
             ))
         else:
-            click.echo(f"Password protection removed for {wxid}. Now using DPAPI.")
+            click.echo(f"Password protection removed for {wxid}. Now using {default_backend}.")
 
     except KeyNotFoundError as e:
         if state.json_mode:
@@ -652,6 +652,7 @@ def unlock(ctx, account):
 
     try:
         # Try direct DPAPI first (no password needed)
+        password = None
         try:
             raw_key = ks.get_key("wechat", wxid)
         except KeyPasswordWrongError:
@@ -680,7 +681,7 @@ def unlock(ctx, account):
             except (json.JSONDecodeError, OSError):
                 pass
 
-        session.create("wechat", wxid, raw_key, ttl_minutes=ttl_minutes)
+        session.create("wechat", wxid, raw_key, ttl_minutes=ttl_minutes, password=password)
 
         hours = ttl_minutes / 60
         if state.json_mode:
