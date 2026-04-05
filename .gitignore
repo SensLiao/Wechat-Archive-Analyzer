@@ -41,3 +41,7 @@ scripts/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Node.js / Frontend
+node_modules/
+ui/web/dist/
