@@ -1,6 +1,6 @@
 # wxtools — 微信聊天记录解密与查询工具
 
-> **当前版本：v0.4.1**
+> **当前版本：v0.5.0**
 
 本地解密微信 PC 版（4.x / 3.x）的 SQLCipher 加密数据库，支持关键词搜索、全文检索、按联系人/时间筛选，导出 JSON / CSV / HTML（聊天气泡），附件自动解析与导出。支持公众号消息和朋友圈查询导出。所有数据留在本地。
 
@@ -30,7 +30,7 @@ pip install -e .
 pip install pycryptodome   # AES 解密依赖
 ```
 
-要求：Python 3.10+。密钥提取支持 Windows 和 macOS；密钥导入、查询和导出全平台支持。
+要求：Python 3.9+。密钥提取支持 Windows 和 macOS；密钥导入、查询和导出全平台支持。
 
 如果你在中文 Windows / Anaconda 环境里运行，并且项目路径包含非 ASCII 字符，建议后续统一使用 `python -X utf8 -m wxtools ...`，避免 Python 以 GBK 模式启动时读取 `.pth` 失败。
 
@@ -97,8 +97,9 @@ wxtools export --attachments copy -o ./output/   # 同时导出附件文件
 | `wxtools cache drop-index` | 删除全文搜索索引 |
 | `wxtools config show` | 查看配置 |
 | `wxtools config set <key> <value>` | 修改配置 |
+| `wxtools app start` | 启动本地 Web App（API + 前端） |
 
-所有命令支持 `--json` 输出结构化 JSON，`-v` / `-vv` 开启调试日志。
+所有命令支持 `--json` 输出结构化 JSON，`-v` / `-vv` 开启调试日志，`--password` 免交互密码。
 
 ## 通过 AI 对话使用（推荐）
 
@@ -174,7 +175,23 @@ wxtools config set active_account wxid_xxx  # 设置默认账号
 
 ## 版本历史
 
-### v0.4.1 — E2E 验证与修复（当前版本）
+### v0.5.0 — 本地信息工作台（当前版本）
+
+v5 新增完整的 GUI 界面，将 CLI 工具升级为可视化本地信息工作台。
+
+| 功能 | 说明 |
+|------|------|
+| 应用服务层 | 业务逻辑从 CLI 解耦为 7 个独立 service，CLI / API / Skill 共享 |
+| FastAPI Web API | 19 个 REST 端点，`127.0.0.1` 本地绑定，启动时生成一次性 session token |
+| React 前端 | 5 个页面（首页 / 搜索 / 工作区 / 导出 / 设置），三栏布局，暖色调档案桌视觉 |
+| 搜索中心 | 分面过滤（联系人、群聊、日期、类型）+ 结果流 + 上下文抽屉 |
+| 工作区 | 跨数据面收集材料，JSON 文件持久化，支持标签和笔记 |
+| 导出向导 | 4 步引导：数据源 → 模板 → 格式 → 执行 |
+| GUI 启动 | `wxtools app start` 一键启动后端 + 前端，自动打开浏览器 |
+| Electron PoC | 桌面壳概念验证，Python sidecar + 健康轮询 + 自动关闭 |
+| Python 3.9+ | 最低版本降至 3.9（`from __future__ import annotations` 兼容） |
+
+### v0.4.1 — E2E 验证与修复
 
 - 修复 `key verify` 在 Windows 上始终返回 0/N 的问题（路径分隔符不匹配 + HMAC 输入范围错误）
 - 修复 `cache build-index` 索引 0 条消息的问题（4.x 列名 `real_sender_id` 适配 + blob 内容跳过）
@@ -238,16 +255,54 @@ v2 新增功能：
 | 错误体系 | 统一错误码 + 修复建议，JSON 和人类可读双格式 |
 | 3.x 兼容 | 向后兼容微信 3.x 的数据库路径和表结构 |
 
-## GUI & Desktop App
+## GUI & Desktop App（v0.5.0+）
 
 ### Web UI（浏览器）
 
 ```bash
-wxtools app start          # 启动本地 Web App，自动打开浏览器
-wxtools app start --port 9000  # 自定义端口
+wxtools app start                     # 启动本地 Web App，自动打开浏览器
+wxtools app start --port 9000         # 自定义端口
+wxtools app start --no-open           # 不自动打开浏览器
 ```
 
-FastAPI 后端 + React 前端，运行在 `127.0.0.1:8808`，所有数据本地处理。
+FastAPI 后端（19 个 API 端点）+ React 前端，运行在 `127.0.0.1:8808`，所有数据本地处理。启动时生成一次性 session token，通过 URL 参数自动传入前端。
+
+**页面：**
+- **首页** — 账号概览、密钥状态、缓存统计、快捷操作
+- **搜索中心** — 关键词 + 分面过滤（联系人 / 群聊 / 日期 / 类型 / 数据面），三栏布局
+- **工作区** — 跨数据面收集材料、添加标签和笔记，JSON 文件持久化
+- **导出向导** — 4 步引导式导出（数据源 → 模板 → 格式 → 执行）
+- **设置** — 账号管理、密钥操作、缓存控制
+
+**构建前端（开发者）：**
+```bash
+cd ui/web
+npm install
+npm run build    # 产物输出到 ui/web/dist/
+npm run dev      # 开发模式（Vite，HMR）
+```
+
+### REST API
+
+API 绑定 `127.0.0.1`，不暴露公网。所有受保护端点需要 `X-Session-Token` 请求头。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 健康检查（无需认证） |
+| GET | `/api/accounts` | 账号列表 |
+| GET | `/api/home/summary` | 首页聚合数据 |
+| GET | `/api/key/status` | 密钥状态 |
+| POST | `/api/key/extract` | 提取密钥 |
+| POST | `/api/key/verify` | 验证密钥 |
+| GET | `/api/cache/status` | 缓存状态 |
+| POST | `/api/query/search` | 搜索消息 |
+| POST | `/api/query/context` | 获取消息上下文 |
+| GET | `/api/workspaces` | 工作区列表 |
+| POST | `/api/workspaces` | 创建工作区 |
+| GET/DELETE | `/api/workspaces/{id}` | 获取/删除工作区 |
+| GET | `/api/export/templates` | 导出模板列表 |
+| POST | `/api/export/run` | 执行导出 |
+| GET | `/api/docs` | Swagger UI（交互式 API 文档） |
 
 ### Desktop App（Electron PoC）
 
@@ -259,7 +314,7 @@ npm install
 npm start
 ```
 
-自动启动 Python 后端、等待就绪、打开桌面窗口，关闭窗口时自动停止后端。详见 `desktop/electron/README.md`。
+自动启动 Python 后端、等待就绪、打开桌面窗口，关闭窗口时自动停止后端。
 
 > **注意：** 这是概念验证（PoC）。生产级桌面 App 可考虑 Tauri（更小体积、更低内存）。
 
