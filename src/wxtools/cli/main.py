@@ -60,6 +60,7 @@ def cli(ctx: click.Context, json_mode: bool, verbose: int):
 
 # Import and register command groups after cli is defined
 from wxtools.cli.commands import key, query, export, cache, config_cmd, skill  # noqa: E402
+from wxtools.cli.commands import app as app_cmd  # noqa: E402
 
 cli.add_command(key.key)
 cli.add_command(query.query)
@@ -68,3 +69,4 @@ cli.add_command(cache.cache)
 cli.add_command(config_cmd.config)
 cli.add_command(skill.skill_group, name="install-skill")
 cli.add_command(skill.uninstall_skill, name="uninstall-skill")
+cli.add_command(app_cmd.app)
