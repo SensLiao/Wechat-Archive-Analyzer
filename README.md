@@ -1,312 +1,282 @@
-# wxtools — 微信聊天记录解密与查询工具
+# wxtools — WeChat Chat History Decryption & Analysis Toolkit
 
-> **当前版本：v0.5.0**
+> **Current version: v0.5.0** | Python 3.9+ | Windows / macOS / Linux | MIT License
 
-本地解密微信 PC 版（4.x / 3.x）的 SQLCipher 加密数据库，支持关键词搜索、全文检索、按联系人/时间筛选，导出 JSON / CSV / HTML（聊天气泡），附件自动解析与导出。支持公众号消息和朋友圈查询导出。所有数据留在本地。
+Local-first toolkit for decrypting WeChat PC (4.x / 3.x) SQLCipher-encrypted databases. Keyword search, full-text retrieval, contact/date filtering, and export to JSON / CSV / HTML (chat bubble UI). Supports Official Account messages and Moments. **All data stays local.**
 
-**用自然语言和 AI 对话，即可完成所有操作** — 内置 `/wechat` skill，支持 Claude Code 和 Codex，无需记忆任何命令。
+**Talk to your data in natural language** — built-in `/wechat` skill for Claude Code and Codex, no commands to memorize.
 
-## 跨平台支持（v0.4.0+）
+<p align="center">
+  <img src="docs/diagrams/architecture-overview.png" alt="Architecture Overview" width="720">
+</p>
 
-| 能力 | Windows | macOS | Linux（Wine） |
-|------|---------|-------|---------------|
-| 密钥提取（`key extract`） | 支持 | 支持 | — |
-| 密钥导入（`key set`） | 支持 | 支持 | 支持 |
-| 查询 / 导出 | 支持 | 支持 | 支持 |
-| 数据目录自动发现 | 支持 | 支持 | 支持（Wine） |
-| 密钥保护方式 | DPAPI | Keychain | Secret Service |
-| 备用保护方式 | 密码 | 密码 | 密码 |
+---
 
-- **Windows**：完整支持，`key extract` 通过 kernel32 API 读取微信进程内存提取密钥
-- **macOS**：完整支持，`key extract` 通过 Mach VM API 读取微信进程内存提取密钥（需 sudo）
-- **Linux**：无官方微信客户端，支持 Wine 环境下的数据目录发现，通过 `key set` 导入密钥后可查询/导出
+## Table of Contents
 
-## 安装
+- [Features](#features)
+- [Cross-Platform Support](#cross-platform-support)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [AI Skill — Natural Language Interface](#ai-skill--natural-language-interface)
+- [Data Surfaces](#data-surfaces)
+- [Cache & Incremental Sync](#cache--incremental-sync)
+- [Security Model](#security-model)
+- [Command Reference](#command-reference)
+- [GUI & Desktop App](#gui--desktop-app-v050)
+- [REST API](#rest-api)
+- [Version History](#version-history)
+- [License](#license)
+
+---
+
+## Features
+
+| Category | Highlights |
+|----------|-----------|
+| Key Extraction | One-time memory scan, HMAC-SHA512 per-DB key derivation, secure storage (DPAPI / Keychain / password) |
+| Decryption | SQLCipher 4 AES-256-CBC, incremental shard-level cache, automatic new-message sync |
+| Query | Keyword, contact, conversation, date range, message type; FTS5 full-text with CJK optimization |
+| Export | JSON / CSV / HTML (chat bubble UI), attachment resolve / check / copy |
+| Data Surfaces | Chat, Official Accounts, Moments, cross-surface unified search |
+| AI Skill | `/wechat` for Claude Code & Codex — natural language to CLI, auto error recovery |
+| Web UI | React SPA with search center, workspace, export wizard; FastAPI backend (19 endpoints) |
+| Desktop | Electron PoC with Python sidecar |
+
+---
+
+## Cross-Platform Support
+
+| Capability | Windows | macOS | Linux (Wine) |
+|------------|---------|-------|--------------|
+| Key extraction (`key extract`) | Yes | Yes (sudo) | — |
+| Key import (`key set`) | Yes | Yes | Yes |
+| Query / Export | Yes | Yes | Yes |
+| Data dir auto-discovery | Yes | Yes | Yes (Wine) |
+| Key protection | DPAPI | Keychain | Secret Service |
+| Fallback protection | Password | Password | Password |
+
+---
+
+## Installation
 
 ```bash
 git clone https://github.com/SensLiao/Wechat-Archive-Analyzer.git
 cd Wechat-Archive-Analyzer
 pip install -e .
-pip install pycryptodome   # AES 解密依赖
+pip install pycryptodome   # AES decryption dependency
 ```
 
-要求：Python 3.9+。密钥提取支持 Windows 和 macOS；密钥导入、查询和导出全平台支持。
+**Requirements:** Python 3.9+. Key extraction on Windows and macOS; key import, query, and export on all platforms.
 
-如果你在中文 Windows / Anaconda 环境里运行，并且项目路径包含非 ASCII 字符，建议后续统一使用 `python -X utf8 -m wxtools ...`，避免 Python 以 GBK 模式启动时读取 `.pth` 失败。
+> **CJK path note:** On Chinese Windows / Anaconda where the project path contains non-ASCII characters, use `python -X utf8 -m wxtools ...` to avoid GBK encoding issues.
 
-## 快速开始
+---
 
-> **提示：** 如果你使用 Claude Code 或 Codex，安装 skill 后直接说 `/wechat 帮我提取密钥` 即可，agent 会引导你完成以下所有步骤。
+## Quick Start
 
-### 1. 获取密钥（一次性）
+> **Tip:** With Claude Code or Codex, just say `/wechat help me extract the key` and the agent will guide you through everything below.
 
-**Windows / macOS（自动提取）：**
-```bash
-wxtools key extract   # Windows 需管理员权限，macOS 需 sudo；微信需运行中
-```
-扫描微信进程内存，找到数据库的加密密钥并加密存储到 `~/.wxtools/keys/`。首次会询问是否设置密码保护，不设置则使用系统密钥��储（Windows DPAPI / macOS Keychain）。密钥永久有效，只需提取一次，后续操作不需要管理员/sudo 权限。
+### 1. Extract Key (one-time)
 
-**Linux（手动导入）：**
-```bash
-wxtools key set <64字符hex密钥或json文件>
-```
-Linux 无官方微信客户端，通过 `key set` 导入已知密钥。密��保护使用 Secret Service 或密码。
+<p align="center">
+  <img src="docs/diagrams/key-extraction-flow.png" alt="Key Extraction Flow" width="520">
+</p>
 
-### 2. 查询
+**Windows / macOS (auto-extract):**
 
 ```bash
-wxtools query "关键词"
-wxtools query --contact "张三" --since 2026-01-01
-wxtools query --conversation "工作群" --type image --limit 50
-wxtools query --surface public                         # 查询公众号消息
-wxtools query --surface moments --contact "张三"       # 查询张三的朋友圈
-wxtools query --surface all "关键词"                   # 跨所有数据面搜索
+wxtools key extract   # Windows: admin required; macOS: sudo; WeChat must be running
 ```
 
-首次查询自动解密数据库并缓存。后续查询时自动检测微信数据库是否有更新，有新消息则增量解密，无更新直接用缓存。
+Scans WeChat process memory, derives per-database keys via HMAC-SHA512, validates against 17 encrypted databases, and stores encrypted keys to `~/.wxtools/keys/`. First run prompts for optional password protection; otherwise uses system keystore (DPAPI / Keychain).
 
-### 3. 导出
+**The key is permanent — extract once, use forever.** Subsequent query/export needs no admin privileges.
+
+**Linux (manual import):**
 
 ```bash
-wxtools export --contact "张三" -o ./output/
-wxtools export --conversation "工作群" --since 2026-01-01
-wxtools export --format html --contact "张三" -o ./output/   # HTML 聊天气泡
-wxtools export --format csv --conversation "工作群" -o ./output/  # CSV 表格
-wxtools export --attachments copy -o ./output/   # 同时导出附件文件
+wxtools key set <64-char-hex-key-or-json-file>
 ```
 
-支持 JSON（默认）、CSV、HTML 三种格式。超过 1000 条时需确认，或加 `--yes` 跳过。`--attachments` 支持 `path`（解析路径）、`check`（检查存在）、`copy`（复制到导出目录）。
+### 2. Query
 
-## 命令速览
+```bash
+wxtools query "keyword"
+wxtools query --contact "Alice" --since 2026-01-01
+wxtools query --conversation "Work Group" --type image --limit 50
+```
 
-| 命令 | 用途 |
-|------|------|
-| `wxtools key extract` | 提取密钥（一次性） |
-| `wxtools key status` | 查看密钥状态 |
-| `wxtools key verify` | 验证密钥有效性 |
-| `wxtools key set <hex/file>` | 手动设置密钥 |
-| `wxtools key set-password` | 设置密码保护 |
-| `wxtools key remove-password` | 移除密码，恢复系统密钥存储 |
-| `wxtools key unlock` | 临时解锁会话（缓存密钥） |
-| `wxtools key lock [--all]` | 锁定会话 |
-| `wxtools query "关键词"` | 搜索消息 |
-| `wxtools export` | 导出聊天记录（JSON/CSV/HTML） |
-| `wxtools cache status` | 查看缓存状态 |
-| `wxtools cache clear` | 清除缓存 |
-| `wxtools cache build-index` | 构建全文搜索索引 |
-| `wxtools cache drop-index` | 删除全文搜索索引 |
-| `wxtools config show` | 查看配置 |
-| `wxtools config set <key> <value>` | 修改配置 |
-| `wxtools app start` | 启动本地 Web App（API + 前端） |
+First query auto-decrypts databases and builds cache. Subsequent queries detect new messages and incrementally update only changed shards.
 
-所有命令支持 `--json` 输出结构化 JSON，`-v` / `-vv` 开启调试日志，`--password` 免交互密码。
+### 3. Export
 
-## 通过 AI 对话使用（推荐）
+```bash
+wxtools export --contact "Alice" -o ./output/
+wxtools export --format html --contact "Alice" -o ./output/   # Chat bubble UI
+wxtools export --format csv --conversation "Work Group" -o ./output/
+wxtools export --attachments copy -o ./output/   # Include attachment files
+```
 
-安装 skill 后，你可以直接用自然语言和 AI agent 对话，agent 会自动调用 CLI 完成操作 — **无需记忆任何命令**。
+Supports JSON (default), CSV, HTML. Over 1000 messages requires confirmation (or `--yes` to skip). `--attachments` modes: `path` (resolve paths), `check` (verify existence), `copy` (copy to export dir).
 
-### 安装 Skill
+---
+
+## AI Skill — Natural Language Interface
+
+<p align="center">
+  <img src="docs/diagrams/nl-cli-pipeline.png" alt="Natural Language → CLI Pipeline" width="720">
+</p>
+
+Install the skill, then talk to your data in plain language — the agent translates to precise CLI commands automatically.
+
+### Install Skill
 
 ```bash
 # Claude Code
-python -X utf8 -m wxtools install-skill          # 安装到 ~/.claude/skills/
+python -X utf8 -m wxtools install-skill
 
 # Codex
-python -X utf8 -m wxtools install-skill --codex  # 安装到 ~/.codex/skills/
+python -X utf8 -m wxtools install-skill --codex
 ```
 
-### 对话示例
-
-在 Claude Code 或 Codex 中直接说：
+### Example Conversations
 
 ```
-/wechat 帮我提取微信密钥
-/wechat 找一下上周张三发的关于项目的消息
-/wechat 导出和李四最近一个月的聊天记录，要 HTML 格式
-/wechat 搜索工作群里关于"周报"的消息
-/wechat 查一下我的公众号消息里有没有提到 AI 的
-/wechat 导出张三的朋友圈
-/wechat 密钥状态
-/wechat 缓存占了多少空间
+/wechat extract my WeChat key
+/wechat find messages from Alice last week about the project
+/wechat export chat with Bob from the past month in HTML
+/wechat search "weekly report" in Work Group
+/wechat check official account messages mentioning AI
+/wechat export Alice's Moments
+/wechat key status
+/wechat how much space does the cache use
 ```
 
-Agent 会自动：
-- 检测环境（wxtools 是否安装、密钥是否就绪）
-- 将自然语言转换为精确的 CLI 命令执行
-- 处理密码解锁、增量缓存、格式选择等细节
-- 遇到错误时给出修复建议并自动重试
-- 大量导出前征求确认
+The agent automatically:
+- Checks environment (wxtools installed? key ready?)
+- Translates natural language to exact CLI commands
+- Handles password unlock, incremental cache, format selection
+- Retries on error with fix suggestions
+- Asks for confirmation before large exports
 
-> **隐私说明：** 所有数据解密和查询在本地完成，CLI 不联网。AI agent 可能使用云端推理处理你的自然语言请求，但原始聊天记录不会上传。
+> **Privacy:** All decryption and queries happen locally. The CLI never phones home. The AI agent may use cloud inference for your natural language request, but raw chat records are not uploaded.
 
-## 缓存机制
+---
 
-- 解密后的 SQLite 缓存在 `~/.wxtools/cache/<wxid>/`
-- 每次查询/导出前自动比较源数据库和缓存的修改时间
-- 微信收到新消息 → 源 DB 文件 mtime 更新 → 下次查询自动重新解密该文件
-- 手动清除：`wxtools cache clear`
+## Data Surfaces
 
-## 安全
+<p align="center">
+  <img src="docs/diagrams/data-surfaces.png" alt="Data Surfaces" width="640">
+</p>
 
-- 所有数据（密钥、缓存、配置）存储在 `~/.wxtools/`，不上传
-- 密钥用系统密钥存储（DPAPI / Keychain / Secret Service）或用户密码（Fernet + scrypt）加密存储
-- 只读取微信数据库副本，不修改原始文件
-- 管理员权限仅用于密钥提取（读取进程内存）
+wxtools organizes WeChat data into 4 queryable surfaces:
 
-## 常见问题
-
-**管理员权限是必须的吗？** 只有 `key extract` 需要（读取微信进程内存）。提取一次后，查询和导出不需要。
-
-**密钥需要重复提取吗？** 不需要。密钥永久有效，除非微信大版本更新改变加密方式。
-
-**新消息怎么同步？** 自动。每次查询时检测源数据库修改时间，有更新则重新解密对应文件。
-
-**找不到数据库？** 手动指定路径：
-```bash
-wxtools config set wechat_data_dir "C:\Users\你的用户名\Documents\xwechat_files"
-```
-
-**多账号？**
-```bash
-wxtools key status                          # 查看所有账号
-wxtools query "关键词" --account wxid_xxx   # 指定账号查询
-wxtools config set active_account wxid_xxx  # 设置默认账号
-```
-
-## 版本历史
-
-### v0.5.0 — 本地信息工作台（当前版本）
-
-v5 新增完整的 GUI 界面，将 CLI 工具升级为可视化本地信息工作台。
-
-| 功能 | 说明 |
-|------|------|
-| 应用服务层 | 业务逻辑从 CLI 解耦为 7 个独立 service，CLI / API / Skill 共享 |
-| FastAPI Web API | 19 个 REST 端点，`127.0.0.1` 本地绑定，启动时生成一次性 session token |
-| React 前端 | 5 个页面（首页 / 搜索 / 工作区 / 导出 / 设置），三栏布局，暖色调档案桌视觉 |
-| 搜索中心 | 分面过滤（联系人、群聊、日期、类型）+ 结果流 + 上下文抽屉 |
-| 工作区 | 跨数据面收集材料，JSON 文件持久化，支持标签和笔记 |
-| 导出向导 | 4 步引导：数据源 → 模板 → 格式 → 执行 |
-| GUI 启动 | `wxtools app start` 一键启动后端 + 前端，自动打开浏览器 |
-| Electron PoC | 桌面壳概念验证，Python sidecar + 健康轮询 + 自动关闭 |
-| Python 3.9+ | 最低版本降至 3.9（`from __future__ import annotations` 兼容） |
-
-### v0.4.1 — E2E 验证与修复
-
-- 修复 `key verify` 在 Windows 上始终返回 0/N 的问题（路径分隔符不匹配 + HMAC 输入范围错误）
-- 修复 `cache build-index` 索引 0 条消息的问题（4.x 列名 `real_sender_id` 适配 + blob 内容跳过）
-- 修复 Windows GBK 终端输出 emoji/CJK 崩溃（强制 UTF-8 输出）
-- `key extract` 跳过 `favorite.db`（密钥存于服务器端，本地内存不存在）
-- FTS 索引现在包含公众号消息（`biz_message_*.db`）
-
-### v0.4.0 — 跨平台
-
-- 密钥保护抽象层：统一 DPAPI、macOS Keychain、Linux Secret Service、密码文件四种后端
-- `key set` 成为跨平台标准密钥导入入口
-- `key extract` 新增 macOS 支持（Mach VM API 内存扫描）
-- macOS / Linux 数据目录自动发现适配器
-- CI 扩展至 Windows、macOS、Ubuntu 三平台矩阵
-
-### v0.3.0
-
-v3 新增功能：
-
-| 功能 | 说明 |
-|------|------|
-| 数据面切换 | `--surface` 参数支持 chat/public/moments/all 四种数据面 |
-| 公众号消息 | `--surface public` 查询/导出公众号消息（biz_message DB） |
-| 朋友圈 | `--surface moments` 查询/导出朋友圈动态、评论、点赞 |
-| CI 流水线 | GitHub Actions CI：pytest + ruff + compileall + secret scan |
-| 安全清理 | 工作区 secret scan，git history 审计，lint 问题全部修复 |
-
-### v0.2.0
-
-v2 新增功能：
-
-| 功能 | 说明 |
-|------|------|
-| 密钥验证 | `key verify` 验证存储密钥与加密数据库匹配，返回逐库通过/失败统计 |
-| 手动设密钥 | `key set` 接受 64 字符 hex 或 JSON 密钥文件，验证后存储 |
-| 会话解锁 | `key unlock/lock` 临时缓存解密密钥，避免重复输入密码，支持 TTL |
-| 全文搜索 | `cache build-index` 构建 FTS5 索引，CJK 分词优化，中文子串秒级检索 |
-| CSV 导出 | `export --format csv` 平铺表格格式，方便 Excel / 数据分析 |
-| HTML 导出 | `export --format html` 微信风格聊天气泡 UI，每个会话独立页面 + 导航 |
-| 附件处理 | `export --attachments [path\|check\|copy]` 解析附件路径、检查存在、复制到导出目录 |
-| 分页查询 | DbReader 新增 `count_messages` / `search_page` / `iter_messages` 分页接口 |
-
-### v0.1.0
-
-完整的 v1 功能实现：
-
-| 功能 | 说明 |
-|------|------|
-| 密钥提取 | 扫描微信进程内存，HMAC-SHA512 验证，17 个数据库逐一匹配派生密钥 |
-| 密钥存储 | 系统密钥存储（DPAPI / Keychain / Secret Service）或用户密码（Fernet + scrypt），首次使用引导选择 |
-| 数据库解密 | SQLCipher 4 直接 AES-256-CBC 解密，原子写入，按 mtime 增量更新 |
-| 消息查询 | 关键词、联系人、群聊、时间范围、消息类型多维筛选，跨分片聚合 |
-| 联系人解析 | 从 contact.db 读取昵称/备注名，Name2Id 表映射发送者 |
-| 消息导出 | JSON 格式，按会话拆分文件 + manifest 索引，流式写入 |
-| 缓存管理 | 自动缓存解密结果，mtime 检测增量更新，支持手动清除 |
-| 配置系统 | YAML 配置文件 + 环境变量覆盖，支持多账号切换 |
-| CLI 框架 | Click 框架，所有命令支持 `--json` 结构化输出和 `-v` 调试日志 |
-| 原生 SQL | 调试用的直接 SQL 查询接口 |
-| AI Skill | Claude Code 和 Codex 双平台 `/wechat` skill |
-| 日志脱敏 | 自动过滤日志中的密钥 hex 内容 |
-| 错误体系 | 统一错误码 + 修复建议，JSON 和人类可读双格式 |
-| 3.x 兼容 | 向后兼容微信 3.x 的数据库路径和表结构 |
-
-## GUI & Desktop App（v0.5.0+）
-
-### Web UI（浏览器）
+| Surface | Source DBs | Description |
+|---------|-----------|-------------|
+| `chat` | `msg_*.db` | Private and group messages (default) |
+| `public` | `biz_message_*.db` | Official Account articles |
+| `moments` | moments DB | Friend Circle posts, comments, likes |
+| `all` | all of the above | Cross-surface unified search |
 
 ```bash
-wxtools app start                     # 启动本地 Web App，自动打开浏览器
-wxtools app start --port 9000         # 自定义端口
-wxtools app start --no-open           # 不自动打开浏览器
+wxtools query --surface public "AI"                    # Official Account messages
+wxtools query --surface moments --contact "Alice"      # Alice's Moments
+wxtools query --surface all "keyword"                  # Search everywhere
 ```
 
-FastAPI 后端（19 个 API 端点）+ React 前端，运行在 `127.0.0.1:8808`，所有数据本地处理。启动时生成一次性 session token，通过 URL 参数自动传入前端。
+---
 
-**页面：**
-- **首页** — 账号概览、密钥状态、缓存统计、快捷操作
-- **搜索中心** — 关键词 + 分面过滤（联系人 / 群聊 / 日期 / 类型 / 数据面），三栏布局
-- **工作区** — 跨数据面收集材料、添加标签和笔记，JSON 文件持久化
-- **导出向导** — 4 步引导式导出（数据源 → 模板 → 格式 → 执行）
-- **设置** — 账号管理、密钥操作、缓存控制
+## Cache & Incremental Sync
 
-**构建前端（开发者）：**
+<p align="center">
+  <img src="docs/diagrams/cache-incremental-sync.png" alt="Cache & Incremental Sync" width="720">
+</p>
+
+- Decrypted SQLite files are cached in `~/.wxtools/cache/<wxid>/`
+- Before each query/export, source DB `mtime` is compared against cache
+- **Only changed shards are re-decrypted** — no full re-decryption needed
+- New WeChat messages update source DB mtime, triggering automatic incremental sync on next query
+- Manual control: `wxtools cache status` / `wxtools cache clear`
+
+---
+
+## Security Model
+
+<p align="center">
+  <img src="docs/diagrams/security-model.png" alt="Security Model" width="640">
+</p>
+
+| Layer | Protection |
+|-------|-----------|
+| **Key Storage** | System keystore (DPAPI / Keychain / Secret Service) or password-encrypted (Fernet + scrypt) |
+| **Cache** | Local filesystem only, user-permission protected |
+| **Network** | Web API binds `127.0.0.1` only, one-time session token, no outbound connections |
+| **Source DBs** | Read-only access — wxtools never modifies WeChat databases |
+| **Exports** | Output to local filesystem only |
+
+Admin/sudo privileges are **only** needed for `key extract` (process memory reading). All other operations run as normal user.
+
+---
+
+## Command Reference
+
+| Command | Purpose |
+|---------|---------|
+| `wxtools key extract` | Extract key (one-time) |
+| `wxtools key status` | View key status |
+| `wxtools key verify` | Validate key against DBs |
+| `wxtools key set <hex/file>` | Manually import key |
+| `wxtools key set-password` | Set password protection |
+| `wxtools key remove-password` | Remove password, revert to system keystore |
+| `wxtools key unlock` | Unlock session (cache key in memory) |
+| `wxtools key lock [--all]` | Lock session |
+| `wxtools query "keyword"` | Search messages |
+| `wxtools export` | Export chat records (JSON/CSV/HTML) |
+| `wxtools cache status` | View cache status |
+| `wxtools cache clear` | Clear cache |
+| `wxtools cache build-index` | Build FTS full-text index |
+| `wxtools cache drop-index` | Drop FTS index |
+| `wxtools config show` | View config |
+| `wxtools config set <key> <value>` | Modify config |
+| `wxtools app start` | Launch Web App (API + frontend) |
+
+All commands support `--json` for structured output, `-v` / `-vv` for debug logs, `--password` for non-interactive password input.
+
+---
+
+## GUI & Desktop App (v0.5.0+)
+
+### Web UI
+
+```bash
+wxtools app start                     # Launch, auto-open browser
+wxtools app start --port 9000         # Custom port
+wxtools app start --no-open           # Don't auto-open browser
+```
+
+FastAPI backend (19 API endpoints) + React frontend at `127.0.0.1:8808`. One-time session token auto-passed to frontend via URL parameter.
+
+**Pages:**
+
+| Page | Description |
+|------|-------------|
+| **Home** | Account overview, key status, cache stats, quick actions |
+| **Search Center** | Keyword + faceted filters (contact / group / date / type / surface), three-column layout |
+| **Workspace** | Collect materials across surfaces, add tags and notes, JSON persistence |
+| **Export Wizard** | 4-step guided export: source -> template -> format -> execute |
+| **Settings** | Account management, key operations, cache control |
+
+**Build frontend (developers):**
+
 ```bash
 cd web
 npm install
-npm run build    # 产物输出到 web/dist/
-npm run dev      # 开发模式（Vite，HMR）
+npm run build    # Output to web/dist/
+npm run dev      # Dev mode (Vite, HMR)
 ```
 
-### REST API
-
-API 绑定 `127.0.0.1`，不暴露公网。所有受保护端点需要 `X-Session-Token` 请求头。
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/health` | 健康检查（无需认证） |
-| GET | `/api/accounts` | 账号列表 |
-| GET | `/api/home/summary` | 首页聚合数据 |
-| GET | `/api/key/status` | 密钥状态 |
-| POST | `/api/key/extract` | 提取密钥 |
-| POST | `/api/key/verify` | 验证密钥 |
-| GET | `/api/cache/status` | 缓存状态 |
-| POST | `/api/query/search` | 搜索消息 |
-| POST | `/api/query/context` | 获取消息上下文 |
-| GET | `/api/workspaces` | 工作区列表 |
-| POST | `/api/workspaces` | 创建工作区 |
-| GET/DELETE | `/api/workspaces/{id}` | 获取/删除工作区 |
-| GET | `/api/export/templates` | 导出模板列表 |
-| POST | `/api/export/run` | 执行导出 |
-| GET | `/api/docs` | Swagger UI（交互式 API 文档） |
-
-### Desktop App（Electron PoC）
-
-Electron 桌面壳，将 Web App 封装为原生窗口：
+### Desktop App (Electron PoC)
 
 ```bash
 cd desktop
@@ -314,9 +284,134 @@ npm install
 npm start
 ```
 
-自动启动 Python 后端、等待就绪、打开桌面窗口，关闭窗口时自动停止后端。
+Auto-starts Python backend, waits for readiness, opens desktop window. Closing the window stops the backend.
 
-> **注意：** 这是概念验证（PoC）。生产级桌面 App 可考虑 Tauri（更小体积、更低内存）。
+> **Note:** This is a proof-of-concept. For production desktop apps, consider Tauri (smaller binary, lower memory).
+
+---
+
+## REST API
+
+API binds `127.0.0.1` only. Protected endpoints require `X-Session-Token` header.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Health check (no auth) |
+| GET | `/api/accounts` | Account list |
+| GET | `/api/home/summary` | Home page aggregate data |
+| GET | `/api/key/status` | Key status |
+| POST | `/api/key/extract` | Extract key |
+| POST | `/api/key/verify` | Verify key |
+| GET | `/api/cache/status` | Cache status |
+| POST | `/api/query/search` | Search messages |
+| POST | `/api/query/context` | Get message context |
+| GET | `/api/workspaces` | Workspace list |
+| POST | `/api/workspaces` | Create workspace |
+| GET/DELETE | `/api/workspaces/{id}` | Get/delete workspace |
+| GET | `/api/export/templates` | Export template list |
+| POST | `/api/export/run` | Execute export |
+| GET | `/api/docs` | Swagger UI (interactive API docs) |
+
+---
+
+## FAQ
+
+**Do I need admin privileges?** Only for `key extract` (reads WeChat process memory). After extracting once, query and export run as normal user.
+
+**Do I need to re-extract the key?** No. The key is permanent unless WeChat changes its encryption scheme in a major update.
+
+**How are new messages synced?** Automatically. Each query checks source DB modification time and re-decrypts only updated shards.
+
+**Can't find the database?** Manually set the path:
+```bash
+wxtools config set wechat_data_dir "C:\Users\YourName\Documents\xwechat_files"
+```
+
+**Multiple accounts?**
+```bash
+wxtools key status                          # List all accounts
+wxtools query "keyword" --account wxid_xxx  # Query specific account
+wxtools config set active_account wxid_xxx  # Set default account
+```
+
+---
+
+## Version History
+
+### v0.5.0 — Local Information Workbench (current)
+
+Full GUI interface, upgrading the CLI tool into a visual local information workbench.
+
+| Feature | Details |
+|---------|---------|
+| Application service layer | Business logic decoupled from CLI into 7 independent services shared by CLI / API / Skill |
+| FastAPI Web API | 19 REST endpoints, `127.0.0.1` local binding, one-time session token |
+| React frontend | 5 pages (Home / Search / Workspace / Export / Settings), warm archival-desk aesthetic |
+| Search center | Faceted filters (contact, group, date, type) + result stream + context drawer |
+| Workspace | Cross-surface material collection, JSON persistence, tags and notes |
+| Export wizard | 4-step guided: source -> template -> format -> execute |
+| GUI launch | `wxtools app start` — one command starts backend + frontend, auto-opens browser |
+| Electron PoC | Desktop shell with Python sidecar, health polling, auto-shutdown |
+| Python 3.9+ | Minimum version lowered to 3.9 (`from __future__ import annotations`) |
+
+### v0.4.1 — E2E Validation & Fixes
+
+- Fixed `key verify` always returning 0/N on Windows (path separator + HMAC input range)
+- Fixed `cache build-index` indexing 0 messages (4.x column name adaptation + blob content skip)
+- Fixed Windows GBK terminal crash on emoji/CJK output (forced UTF-8)
+- `key extract` skips `favorite.db` (key stored server-side)
+- FTS index now includes Official Account messages (`biz_message_*.db`)
+
+### v0.4.0 — Cross-Platform
+
+- Key protection abstraction: unified DPAPI, macOS Keychain, Linux Secret Service, password file backends
+- `key set` as cross-platform standard key import entry point
+- `key extract` adds macOS support (Mach VM API memory scan)
+- macOS / Linux data directory auto-discovery adapters
+- CI expanded to Windows, macOS, Ubuntu matrix
+
+### v0.3.0 — Data Surfaces & CI
+
+| Feature | Details |
+|---------|---------|
+| Surface switching | `--surface` flag: chat / public / moments / all |
+| Official Accounts | `--surface public` query/export from biz_message DB |
+| Moments | `--surface moments` query/export posts, comments, likes |
+| CI pipeline | GitHub Actions: pytest + ruff + compileall + secret scan |
+| Security cleanup | Workspace secret scan, git history audit, lint fixes |
+
+### v0.2.0 — Query & Export Enhancement
+
+| Feature | Details |
+|---------|---------|
+| Key verification | `key verify` validates stored key against encrypted DBs |
+| Manual key set | `key set` accepts 64-char hex or JSON key file |
+| Session unlock | `key unlock/lock` caches decrypted key in memory with TTL |
+| Full-text search | `cache build-index` builds FTS5 index with CJK optimization |
+| CSV export | `export --format csv` flat table format |
+| HTML export | `export --format html` WeChat-style chat bubble UI |
+| Attachments | `export --attachments [path\|check\|copy]` |
+| Pagination | `count_messages` / `search_page` / `iter_messages` APIs |
+
+### v0.1.0 — Core Engine
+
+| Feature | Details |
+|---------|---------|
+| Key extraction | WeChat process memory scan, HMAC-SHA512, per-DB key derivation |
+| Key storage | System keystore or password-encrypted (Fernet + scrypt) |
+| DB decryption | SQLCipher 4 AES-256-CBC, atomic write, mtime-based incremental update |
+| Message query | Multi-dimensional: keyword, contact, conversation, date, type; cross-shard aggregation |
+| Contact resolution | Nickname/alias from contact.db, Name2Id sender mapping |
+| Export | JSON format, per-conversation files + manifest, streaming write |
+| Cache | Auto-cache decrypted results, mtime detection, manual clear |
+| Config | YAML config + env var overrides, multi-account switching |
+| CLI | Click framework, `--json` + `-v` on all commands |
+| AI Skill | Claude Code & Codex `/wechat` skill |
+| Log redaction | Auto-filter key hex from logs |
+| Error system | Unified error codes + fix suggestions, dual format output |
+| 3.x compat | Backward compatible with WeChat 3.x DB paths and schemas |
+
+---
 
 ## License
 
