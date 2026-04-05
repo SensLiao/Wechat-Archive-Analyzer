@@ -65,18 +65,26 @@ python -X utf8 -m wxtools --json key status
 1. **微信 PC 版正在运行且已登录** — 密钥在微信进程内存中
 2. **终端以管理员身份运行** — 读取进程内存需要提权
 
-告诉用户这两个条件，确认后执行：
+告诉用户这两个条件，确认后直接执行（`--no-password` 跳过交互式密码设置提示）：
 
 ```bash
-python -X utf8 -m wxtools --json key extract
+python -X utf8 -m wxtools --json key extract --no-password
 ```
 
 ### 提取成功
 
 返回 `"status": "stored"` 和 `"db_count": N`。告知用户：
-- 密钥已安全加密存储
+- 密钥已安全加密存储（使用系统密钥存储）
 - 后续查询和导出不再需要管理员权限
 - 密钥永久有效，不需要重复提取
+
+### 用户要求设置密码保护
+
+如果用户明确要求用密码保护密钥，先向用户询问密码，然后：
+
+```bash
+python -X utf8 -m wxtools --json key extract --password "用户提供的密码"
+```
 
 ### 提取失败的诊断
 
@@ -85,6 +93,24 @@ python -X utf8 -m wxtools --json key extract
 | `WECHAT_NOT_RUNNING` | 微信未启动或未登录 | 请用户打开微信并登录 |
 | `ADMIN_REQUIRED` | 终端无管理员权限 | 请用户右键终端 → 以管理员身份运行 |
 | `KEY_EXTRACT_FAILED` | 内存扫描失败 | 确认微信版本为 4.x，尝试重启微信后再试 |
+
+## 密码处理原则
+
+**所有需要密码的命令都支持 `--password` 参数**，你可以直接传入密码而无需交互。流程如下：
+
+1. 当命令因 `KEY_PASSWORD_WRONG` 失败时，说明密钥有密码保护
+2. 向用户询问密码（通过对话）
+3. 使用 `--password "用户的密码"` 重新执行命令
+
+```bash
+# 示例：带密码查询
+python -X utf8 -m wxtools --json query "关键词" --password "用户的密码"
+
+# 示例：带密码解锁（解锁后后续操作不再需要密码）
+python -X utf8 -m wxtools --json key unlock --password "用户的密码"
+```
+
+**推荐做法**：如果发现密钥有密码保护，优先执行 `key unlock --password "..."` 解锁会话（默认2小时有效），之后的查询和导出就不需要再传密码了。
 
 ## 命令参考
 
@@ -109,14 +135,19 @@ python -X utf8 -m wxtools --json export --format json --output ./export/ --conta
 ### 密钥管理
 
 ```bash
-python -X utf8 -m wxtools --json key status          # 查看密钥状态
-python -X utf8 -m wxtools --json key extract         # 提取密钥（需管理员+微信运行）
-python -X utf8 -m wxtools --json key verify          # 验证密钥是否有效（尝试解密一个 DB）
-python -X utf8 -m wxtools --json key set <hex-or-json>  # 手动导入密钥（高级用法）
-python -X utf8 -m wxtools --json key unlock          # 输入密码登录（一段时间内免密）
-python -X utf8 -m wxtools --json key lock            # 退出登录（立即要求重新输入密码）
-python -X utf8 -m wxtools key set-password           # 设置密码保护（交互式，不加 --json）
-python -X utf8 -m wxtools key remove-password        # 移除密码（交互式，不加 --json）
+python -X utf8 -m wxtools --json key status                                    # 查看密钥状态
+python -X utf8 -m wxtools --json key extract --no-password                     # 提取密钥（需管理员+微信运行）
+python -X utf8 -m wxtools --json key extract --password "密码"                 # 提取密钥并设密码保护
+python -X utf8 -m wxtools --json key verify                                    # 验证密钥有效性
+python -X utf8 -m wxtools --json key verify --password "密码"                  # 带密码验证
+python -X utf8 -m wxtools --json key set <hex-or-json> --no-password           # 手动导入密钥
+python -X utf8 -m wxtools --json key set <hex-or-json> --password "密码" --force  # 导入+密码+跳过验证失败确认
+python -X utf8 -m wxtools --json key unlock --password "密码"                  # 解锁会话（免密一段时间）
+python -X utf8 -m wxtools --json key unlock --password "密码" --ttl 120        # 指定解锁时长（分钟）
+python -X utf8 -m wxtools --json key lock                                      # 锁定会话
+python -X utf8 -m wxtools --json key set-password --new-password "新密码"      # 设置密码保护
+python -X utf8 -m wxtools --json key set-password --password "旧密码" --new-password "新密码"  # 更换密码
+python -X utf8 -m wxtools --json key remove-password --password "密码"         # 移除密码保护
 ```
 
 ### 导出格式与附件选项

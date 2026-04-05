@@ -64,8 +64,10 @@ def key():
 
 @key.command()
 @click.option("--account", help="Target account wxid.")
+@click.option("--password", default=None, help="Set password protection (skip interactive prompt).")
+@click.option("--no-password", "no_password", is_flag=True, help="Use system keystore, skip password prompt.")
 @click.pass_context
-def extract(ctx, account):
+def extract(ctx, account, password, no_password):
     """Extract key from running WeChat process."""
     cfg, ks, state = _get_config_and_keystore(ctx)
 
@@ -127,13 +129,17 @@ def extract(ctx, account):
         # Determine protection mode
         config_protection = cfg.get("keystore_protection", "auto")
         is_first_time = not ks.has_key("wechat", wxid)
-        password = None
 
         if config_protection != "auto":
-            # Config explicitly sets non-default protection — respect it
             protection = config_protection
-        elif is_first_time and not state.json_mode:
-            # First-use password setup prompt (interactive only, one-time)
+        elif password:
+            # --password provided: use password-file backend
+            protection = "password-file"
+        elif no_password or state.json_mode:
+            # --no-password or JSON mode: use system default, no prompt
+            protection = "auto"
+        elif is_first_time:
+            # Interactive first-use prompt
             click.echo()
             wants_password = click.confirm(
                 "Do you want to set a password to protect your keys?\n"
@@ -148,7 +154,6 @@ def extract(ctx, account):
             else:
                 protection = "windows-dpapi"
         else:
-            # JSON mode or re-extraction: keep platform default
             protection = "auto"
 
         ks.store_key(
@@ -243,8 +248,9 @@ def _find_db_dir(cfg, wxid: str) -> Path | None:
 
 @key.command()
 @click.option("--account", help="Target account wxid.")
+@click.option("--password", default=None, help="Password for key decryption.")
 @click.pass_context
-def verify(ctx, account):
+def verify(ctx, account, password):
     """Verify stored key against encrypted databases."""
     cfg, ks, state = _get_config_and_keystore(ctx)
     wxid = _resolve_account(cfg, account)
@@ -263,10 +269,11 @@ def verify(ctx, account):
 
     try:
         # Retrieve key (may need password)
-        password = None
         try:
-            raw_key = ks.get_key("wechat", wxid)
+            raw_key = ks.get_key("wechat", wxid, password=password)
         except KeyPasswordWrongError:
+            if password:
+                raise  # --password was wrong, don't retry
             password = click.prompt("请输入密钥密码", hide_input=True)
             raw_key = ks.get_key("wechat", wxid, password=password)
 
@@ -333,8 +340,11 @@ def verify(ctx, account):
 @key.command("set")
 @click.argument("key_input")
 @click.option("--account", help="Target account wxid.")
+@click.option("--password", default=None, help="Set password protection (skip interactive prompt).")
+@click.option("--no-password", "no_password", is_flag=True, help="Use system keystore, skip password prompt.")
+@click.option("--force", is_flag=True, help="Save key even if verification fails.")
 @click.pass_context
-def set_key(ctx, key_input, account):
+def set_key(ctx, key_input, account, password, no_password, force):
     """Manually set a decryption key (64-char hex or JSON file path)."""
     cfg, ks, state = _get_config_and_keystore(ctx)
     wxid = _resolve_account(cfg, account)
@@ -402,46 +412,50 @@ def set_key(ctx, key_input, account):
                 for d in result.get("details", []):
                     if not d["ok"]:
                         click.echo(f"  失败: {d['path']}")
-                if not click.confirm("是否仍然保存此密钥?"):
+                if not force and not click.confirm("是否仍然保存此密钥?"):
                     click.echo("已取消。")
                     ctx.exit(0)
                     return
-            # In JSON mode, still store but report validation
+            # In JSON mode or --force, still store but report validation
     else:
         if not state.json_mode:
             click.echo("警告: 未找到数据库目录，跳过验证。")
 
     # Determine protection backend
     protection = "auto"
-    password = None
-    if not state.json_mode:
-        config_protection = cfg.get("keystore_protection", "auto")
-        if config_protection != "auto":
-            protection = config_protection
-        else:
-            from wxtools.core.platform import get_default_backend_name
-            default_backend = get_default_backend_name()
-            if default_backend == "windows-dpapi":
-                wants_password = click.confirm("是否使用密码保护密钥?", default=False)
-                if wants_password:
-                    password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
-                    protection = "password-file"
-                else:
-                    protection = "windows-dpapi"
+    config_protection = cfg.get("keystore_protection", "auto")
+    if config_protection != "auto":
+        protection = config_protection
+    elif password:
+        # --password provided: use password-file backend
+        protection = "password-file"
+    elif no_password or state.json_mode:
+        # --no-password or JSON mode: use system default
+        protection = "auto"
+    else:
+        # Interactive mode
+        from wxtools.core.platform import get_default_backend_name
+        default_backend = get_default_backend_name()
+        if default_backend == "windows-dpapi":
+            wants_password = click.confirm("是否使用密码保护密钥?", default=False)
+            if wants_password:
+                password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
+                protection = "password-file"
             else:
-                # Non-Windows: try system keychain, fallback to password
-                from wxtools.core.secret_backends import get_backend
-                try:
-                    backend = get_backend(default_backend)
-                    if backend.is_available():
-                        protection = default_backend
-                        click.echo(f"将使用 {default_backend} 保护密钥。")
-                    else:
-                        raise OSError("not available")
-                except (OSError, Exception):
-                    click.echo("系统密钥存储不可用，将使用密码保护。")
-                    password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
-                    protection = "password-file"
+                protection = "windows-dpapi"
+        else:
+            from wxtools.core.secret_backends import get_backend
+            try:
+                backend = get_backend(default_backend)
+                if backend.is_available():
+                    protection = default_backend
+                    click.echo(f"将使用 {default_backend} 保护密钥。")
+                else:
+                    raise OSError("not available")
+            except (OSError, Exception):
+                click.echo("系统密钥存储不可用，将使用密码保护。")
+                password = click.prompt("设置密码", hide_input=True, confirmation_prompt=True)
+                protection = "password-file"
 
     # Store key
     key_bytes = key_data.encode("ascii")
@@ -471,8 +485,11 @@ def set_key(ctx, key_input, account):
 
 @key.command(name="set-password")
 @click.option("--account", help="Target account wxid.")
+@click.option("--password", default=None, help="Current password (if key is password-protected).")
+@click.option("--new-password", default=None, help="New password to set.")
+@click.option("--ttl", type=int, default=None, help="Session TTL in minutes (default 120).")
 @click.pass_context
-def set_password(ctx, account):
+def set_password(ctx, account, password, new_password, ttl):
     """Set password protection for stored keys."""
     cfg, ks, state = _get_config_and_keystore(ctx)
     wxid = _resolve_account(cfg, account)
@@ -491,18 +508,22 @@ def set_password(ctx, account):
 
     try:
         # First retrieve the existing key (might need current password)
-        current_password = None
         try:
-            raw_key = ks.get_key("wechat", wxid)
+            raw_key = ks.get_key("wechat", wxid, password=password)
         except KeyPasswordWrongError:
+            if password:
+                raise  # --password was wrong
             current_password = click.prompt("Current password", hide_input=True)
             raw_key = ks.get_key("wechat", wxid, password=current_password)
 
-        new_password = click.prompt("New password", hide_input=True, confirmation_prompt=True)
+        if not new_password:
+            new_password = click.prompt("New password", hide_input=True, confirmation_prompt=True)
         ks.store_key("wechat", wxid, raw_key, protection="password", password=new_password)
 
         # TTL selection
-        if not state.json_mode:
+        if ttl is not None:
+            ttl_minutes = ttl
+        elif not state.json_mode:
             click.echo("\n请选择密码有效时长（输入数字）：")
             click.echo("  1) 30分钟")
             click.echo("  2) 1小时")
@@ -539,8 +560,9 @@ def set_password(ctx, account):
 
 @key.command(name="remove-password")
 @click.option("--account", help="Target account wxid.")
+@click.option("--password", default=None, help="Current password.")
 @click.pass_context
-def remove_password(ctx, account):
+def remove_password(ctx, account, password):
     """Remove password protection (revert to system secret backend)."""
     cfg, ks, state = _get_config_and_keystore(ctx)
     wxid = _resolve_account(cfg, account)
@@ -558,8 +580,9 @@ def remove_password(ctx, account):
         return
 
     try:
-        current_password = click.prompt("Current password", hide_input=True)
-        raw_key = ks.get_key("wechat", wxid, password=current_password)
+        if not password:
+            password = click.prompt("Current password", hide_input=True)
+        raw_key = ks.get_key("wechat", wxid, password=password)
 
         from wxtools.core.platform import get_default_backend_name
         from wxtools.core.secret_backends import get_backend as _get_backend
@@ -607,8 +630,10 @@ def remove_password(ctx, account):
 
 @key.command()
 @click.option("--account", help="Target account wxid.")
+@click.option("--password", default=None, help="Password for key decryption.")
+@click.option("--ttl", type=int, default=None, help="Session TTL in minutes (default from metadata or 120).")
 @click.pass_context
-def unlock(ctx, account):
+def unlock(ctx, account, password, ttl):
     """Unlock key for session (cache decrypted key temporarily)."""
     cfg, ks, state = _get_config_and_keystore(ctx)
     wxid = _resolve_account(cfg, account)
@@ -652,29 +677,32 @@ def unlock(ctx, account):
         return
 
     try:
-        # Try direct DPAPI first (no password needed)
-        password = None
+        # Try with provided password (or None for DPAPI/Keychain)
         try:
-            raw_key = ks.get_key("wechat", wxid)
-        except KeyPasswordWrongError:
-            # Need password
-            if state.json_mode:
-                password = os.environ.get("WXTOOLS_PASSWORD")
-                if not password:
-                    print_json(error_envelope(
-                        "KEY_PASSWORD_WRONG", "需要密码。",
-                        "设置 WXTOOLS_PASSWORD 环境变量。",
-                        command="key unlock",
-                    ))
-                    ctx.exit(1)
-                    return
-            else:
-                password = click.prompt("请输入密码", hide_input=True)
             raw_key = ks.get_key("wechat", wxid, password=password)
+        except KeyPasswordWrongError:
+            if password:
+                raise  # --password was wrong, don't retry
+            # Try env var
+            env_pw = os.environ.get("WXTOOLS_PASSWORD")
+            if env_pw:
+                raw_key = ks.get_key("wechat", wxid, password=env_pw)
+                password = env_pw
+            elif not state.json_mode:
+                password = click.prompt("请输入密码", hide_input=True)
+                raw_key = ks.get_key("wechat", wxid, password=password)
+            else:
+                print_json(error_envelope(
+                    "KEY_PASSWORD_WRONG", "需要密码。",
+                    "使用 --password 参数或设置 WXTOOLS_PASSWORD 环境变量。",
+                    command="key unlock",
+                ))
+                ctx.exit(1)
+                return
 
-        # Read TTL from metadata
+        # Read TTL from metadata (--ttl flag overrides)
         meta_path = ks._meta_path("wechat", wxid)
-        ttl_minutes = 120
+        ttl_minutes = ttl if ttl is not None else 120
         if meta_path.exists():
             try:
                 meta = json.loads(meta_path.read_text("utf-8"))

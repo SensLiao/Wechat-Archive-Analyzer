@@ -41,8 +41,9 @@ WRITERS = {"json": JsonWriter, "csv": CsvWriter, "html": HtmlWriter}
               default="chat", help="Data surface: chat, public (公众号), moments (朋友圈), or all.")
 @click.option("--attachments", type=click.Choice(["path", "check", "copy"]),
               default=None, help="Attachment handling: path=resolve, check=verify, copy=copy to export dir.")
+@click.option("--password", default=None, help="Password for key decryption.")
 @click.pass_context
-def export(ctx, fmt, output_path, contact, conversation, since, until_date, limit, account, yes, surface, attachments):
+def export(ctx, fmt, output_path, contact, conversation, since, until_date, limit, account, yes, surface, attachments, password):
     """Export messages to file."""
     state = ctx.obj
     cfg = load_config()
@@ -50,7 +51,7 @@ def export(ctx, fmt, output_path, contact, conversation, since, until_date, limi
     try:
         from wxtools.cli.commands.query import _resolve_account_and_reader
 
-        reader, account_data_path = _resolve_account_and_reader(cfg, account, json_mode=state.json_mode)
+        reader, account_data_path = _resolve_account_and_reader(cfg, account, json_mode=state.json_mode, password=password)
 
         # Parse date filters
         since_dt: Optional[datetime] = None

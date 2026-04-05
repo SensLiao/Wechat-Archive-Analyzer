@@ -19,21 +19,25 @@ from wxtools.core.unlock_session import UnlockSession
 logger = logging.getLogger("wxtools.cli.query")
 
 
-def _get_key_with_session(cfg, ks: Keystore, wxid: str, json_mode: bool) -> bytes:
-    """Retrieve key trying session, DPAPI, env var, then interactive prompt."""
+def _get_key_with_session(cfg, ks: Keystore, wxid: str, json_mode: bool, password: str | None = None) -> bytes:
+    """Retrieve key trying session, --password, DPAPI, env var, then interactive prompt."""
     # 1. Try session
     session = UnlockSession(cfg.session_dir)
     session_key = session.get_key("wechat", wxid)
     if session_key is not None:
         return session_key
 
-    # 2. Try direct DPAPI (no password)
+    # 2. Try --password if provided
+    if password:
+        return ks.get_key("wechat", wxid, password=password)
+
+    # 3. Try direct DPAPI (no password)
     try:
         return ks.get_key("wechat", wxid)
     except KeyPasswordWrongError:
         pass
 
-    # 3. Try env var
+    # 4. Try env var
     env_password = os.environ.get("WXTOOLS_PASSWORD")
     if env_password:
         try:
@@ -41,7 +45,7 @@ def _get_key_with_session(cfg, ks: Keystore, wxid: str, json_mode: bool) -> byte
         except KeyPasswordWrongError:
             pass
 
-    # 4. Try interactive prompt (non-JSON mode only)
+    # 5. Try interactive prompt (non-JSON mode only)
     if not json_mode:
         try:
             password = click.prompt("请输入密码", hide_input=True)
@@ -52,7 +56,7 @@ def _get_key_with_session(cfg, ks: Keystore, wxid: str, json_mode: bool) -> byte
     raise KeyNotFoundError(wxid)
 
 
-def _resolve_account_and_reader(cfg, account_arg, json_mode: bool = False):
+def _resolve_account_and_reader(cfg, account_arg, json_mode: bool = False, password: str | None = None):
     """Resolve account, ensure cache exists (decrypt if needed), return (DbReader, account_path)."""
     from wxtools.plugins.wechat.account_discovery import discover_accounts, find_wechat_data_dir
     from wxtools.plugins.wechat.db_reader import DbReader
@@ -102,7 +106,7 @@ def _resolve_account_and_reader(cfg, account_arg, json_mode: bool = False):
 
     # Always run decrypt_all — it checks mtime per file and only
     # re-decrypts databases whose source is newer than the cache.
-    raw_key = _get_key_with_session(cfg, ks, wxid, json_mode)
+    raw_key = _get_key_with_session(cfg, ks, wxid, json_mode, password=password)
     key_data = raw_key.decode("ascii")
     decryptor = Decryptor()
     decryptor.decrypt_all(Path(db_dir), account_cache, key_data)
@@ -125,8 +129,9 @@ def _resolve_account_and_reader(cfg, account_arg, json_mode: bool = False):
               default="chat", help="Data surface: chat, public (公众号), moments (朋友圈), or all.")
 @click.option("--attachments", type=click.Choice(["path", "check"]),
               default=None, help="Attachment handling: path=resolve paths, check=verify existence.")
+@click.option("--password", default=None, help="Password for key decryption.")
 @click.pass_context
-def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limit, offset, sql, account, surface, attachments):
+def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limit, offset, sql, account, surface, attachments, password):
     """Search messages in decrypted WeChat databases."""
     state = ctx.obj
     cfg = load_config()
@@ -135,7 +140,7 @@ def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limi
         limit = cfg.get("default_limit", 100)
 
     try:
-        reader, account_data_path = _resolve_account_and_reader(cfg, account, json_mode=state.json_mode)
+        reader, account_data_path = _resolve_account_and_reader(cfg, account, json_mode=state.json_mode, password=password)
 
         if sql:
             # Raw SQL mode
