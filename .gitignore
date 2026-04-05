@@ -23,6 +23,10 @@ env/
 *.swp
 *.swo
 
+# Claude Code / Learnings
+.claude/
+.learnings/
+
 # OS
 .DS_Store
 Thumbs.db
