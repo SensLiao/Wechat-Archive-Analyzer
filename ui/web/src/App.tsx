@@ -9,11 +9,15 @@ function App() {
   return (
     <div className="app-shell">
       <nav className="sidebar">
-        <div className="sidebar-brand">wxtools</div>
+        <div className="sidebar-brand">
+          <span className="sidebar-brand-mark">W</span>
+          <span className="sidebar-brand-text">wxtools</span>
+        </div>
         <NavLink to="/" className="nav-item" end>工作台</NavLink>
         <NavLink to="/search" className="nav-item">搜索</NavLink>
         <NavLink to="/workspace" className="nav-item">工作区</NavLink>
         <NavLink to="/exports" className="nav-item">导出</NavLink>
+        <div className="sidebar-spacer" />
         <NavLink to="/settings" className="nav-item">设置</NavLink>
       </nav>
       <main className="main-content">

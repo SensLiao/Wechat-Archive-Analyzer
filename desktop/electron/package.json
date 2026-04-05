@@ -1,0 +1,33 @@
+{
+  "name": "wxtools-desktop",
+  "version": "0.5.0",
+  "description": "wxtools Desktop — Local WeChat data workstation",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.wxtools.desktop",
+    "productName": "wxtools",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "extraResources": [
+      {
+        "from": "../../ui/web/dist",
+        "to": "frontend"
+      }
+    ]
+  }
+}

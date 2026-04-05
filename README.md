@@ -238,6 +238,31 @@ v2 新增功能：
 | 错误体系 | 统一错误码 + 修复建议，JSON 和人类可读双格式 |
 | 3.x 兼容 | 向后兼容微信 3.x 的数据库路径和表结构 |
 
+## GUI & Desktop App
+
+### Web UI（浏览器）
+
+```bash
+wxtools app start          # 启动本地 Web App，自动打开浏览器
+wxtools app start --port 9000  # 自定义端口
+```
+
+FastAPI 后端 + React 前端，运行在 `127.0.0.1:8808`，所有数据本地处理。
+
+### Desktop App（Electron PoC）
+
+Electron 桌面壳，将 Web App 封装为原生窗口：
+
+```bash
+cd desktop/electron
+npm install
+npm start
+```
+
+自动启动 Python 后端、等待就绪、打开桌面窗口，关闭窗口时自动停止后端。详见 `desktop/electron/README.md`。
+
+> **注意：** 这是概念验证（PoC）。生产级桌面 App 可考虑 Tauri（更小体积、更低内存）。
+
 ## License
 
 MIT
