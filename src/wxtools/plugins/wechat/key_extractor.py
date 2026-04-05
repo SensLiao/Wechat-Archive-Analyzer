@@ -5,13 +5,12 @@ a unique derived encryption key. This module scans the WeChat process memory
 for 32-byte candidates and verifies them via fast HMAC-SHA512 check against
 each database's salt (from the first page).
 
-The verified derived keys are returned as a JSON-encoded dict mapping
-relative DB paths to hex-encoded keys.
+Platform-specific memory scanning is delegated to memory_scanner/.
+Verification logic (HMAC-SHA512) is fully platform-independent.
 """
 
 from __future__ import annotations
 
-import ctypes
 import hashlib
 import hmac as hmac_mod
 import json
@@ -28,7 +27,11 @@ from wxtools.core.errors import AdminRequiredError, WeChatNotRunningError
 
 logger = logging.getLogger("wxtools.key_extractor")
 
-WECHAT_PROCESS_NAMES = {"Weixin.exe", "WeChat.exe"}
+# Per-platform WeChat process names
+_PROCESS_NAMES: Dict[str, set] = {
+    "win32": {"Weixin.exe", "WeChat.exe"},
+    "darwin": {"WeChat"},
+}
 
 # SQLCipher 4 parameters for WeChat 4.x
 PAGE_SIZE = 4096
@@ -42,9 +45,12 @@ KDF_ITER = 256000
 
 def find_wechat_pid() -> int:
     """Find the main WeChat process (largest RSS)."""
+    names = _PROCESS_NAMES.get(sys.platform, set())
+    if not names:
+        raise OSError(f"WeChat process discovery not supported on {sys.platform}")
     candidates = []
     for proc in psutil.process_iter(["pid", "name"]):
-        if proc.info["name"] in WECHAT_PROCESS_NAMES:
+        if proc.info["name"] in names:
             try:
                 rss = proc.memory_info().rss
                 candidates.append((proc.info["pid"], rss))
@@ -104,8 +110,7 @@ def extract_keys(
 
     Returns a dict mapping relative DB path to hex-encoded derived key.
     """
-    if sys.platform != "win32":
-        raise OSError("Key extraction only supported on Windows")
+    from wxtools.plugins.wechat.memory_scanner import get_scanner
 
     if pid is None:
         pid = find_wechat_pid()
@@ -118,91 +123,48 @@ def extract_keys(
     if progress_fn:
         progress_fn(f"Scanning WeChat process (PID {pid}) for {len(dbs)} database keys...")
 
-    kernel32 = ctypes.windll.kernel32
-    handle = kernel32.OpenProcess(0x0410, False, pid)
-    if not handle:
-        raise AdminRequiredError()
-
-    class MBI(ctypes.Structure):
-        _fields_ = [
-            ("BaseAddress", ctypes.c_ulonglong),
-            ("AllocationBase", ctypes.c_ulonglong),
-            ("AllocationProtect", ctypes.c_ulong),
-            ("PartitionId", ctypes.c_ushort),
-            ("_a1", ctypes.c_ushort),
-            ("RegionSize", ctypes.c_ulonglong),
-            ("State", ctypes.c_ulong),
-            ("Protect", ctypes.c_ulong),
-            ("Type", ctypes.c_ulong),
-            ("_a2", ctypes.c_ulong),
-        ]
+    scanner = get_scanner()
+    scanner.open(pid)
 
     try:
-        mbi = MBI()
-        addr = 0
         seen: Set[bytes] = set()
         found: Dict[str, str] = {}
         remaining = set(dbs.keys())
         tested = 0
         t_start = time.time()
 
-        while addr < 0x7FFFFFFFFFFFFFFF and remaining:
-            if kernel32.VirtualQueryEx(
-                handle, ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi)
-            ) == 0:
+        for region_data in scanner.readable_regions():
+            if not remaining:
                 break
 
-            base = mbi.BaseAddress or 0
-            size = mbi.RegionSize or 0
+            for off in range(0, len(region_data) - 8, 8):
+                ptr = int.from_bytes(region_data[off : off + 8], "little")
+                if not (0x10000 < ptr < 0x7FFFFFFFFFFFFFFF):
+                    continue
+                enc_key = scanner.read_pointer(ptr, KEY_SIZE)
+                if enc_key is None:
+                    continue
+                if enc_key in seen or enc_key == b"\x00" * KEY_SIZE or len(set(enc_key)) < 12:
+                    continue
+                seen.add(enc_key)
 
-            if (
-                mbi.State == 0x1000
-                and mbi.Protect not in (0x01, 0x100)
-                and 0 < size < 200 * 1024 * 1024
-            ):
-                buf = ctypes.create_string_buffer(size)
-                br = ctypes.c_size_t(0)
-                if kernel32.ReadProcessMemory(
-                    handle, ctypes.c_void_p(base), buf, size, ctypes.byref(br)
-                ):
-                    data = buf.raw[: br.value]
+                for rel in list(remaining):
+                    if _verify_enc_key_for_db(enc_key, dbs[rel]):
+                        found[rel] = enc_key.hex()
+                        remaining.discard(rel)
+                        logger.info("Found key for %s", rel)
+                        if progress_fn:
+                            progress_fn(
+                                f"Found key for {rel} ({len(found)}/{len(dbs)})"
+                            )
+                tested += 1
 
-                    for off in range(0, len(data) - 8, 8):
-                        ptr = int.from_bytes(data[off : off + 8], "little")
-                        if not (0x10000 < ptr < 0x7FFFFFFFFFFFFFFF):
-                            continue
-                        kb = ctypes.create_string_buffer(KEY_SIZE)
-                        if not kernel32.ReadProcessMemory(
-                            handle, ctypes.c_void_p(ptr), kb, KEY_SIZE, 0
-                        ):
-                            continue
-                        enc_key = bytes(kb)
-                        if enc_key in seen or enc_key == b"\x00" * KEY_SIZE or len(set(enc_key)) < 12:
-                            continue
-                        seen.add(enc_key)
-
-                        for rel in list(remaining):
-                            if _verify_enc_key_for_db(enc_key, dbs[rel]):
-                                found[rel] = enc_key.hex()
-                                remaining.discard(rel)
-                                logger.info("Found key for %s", rel)
-                                if progress_fn:
-                                    progress_fn(
-                                        f"Found key for {rel} ({len(found)}/{len(dbs)})"
-                                    )
-                        tested += 1
-
-                    if progress_fn and tested % 10000 == 0 and tested > 0:
-                        elapsed = time.time() - t_start
-                        progress_fn(
-                            f"Scanned {tested} candidates ({tested/elapsed:.0f}/s), "
-                            f"{len(found)}/{len(dbs)} keys found..."
-                        )
-
-            na = base + size
-            if na <= addr:
-                break
-            addr = na
+                if progress_fn and tested % 10000 == 0 and tested > 0:
+                    elapsed = time.time() - t_start
+                    progress_fn(
+                        f"Scanned {tested} candidates ({tested/elapsed:.0f}/s), "
+                        f"{len(found)}/{len(dbs)} keys found..."
+                    )
 
         elapsed = time.time() - t_start
         logger.info(
@@ -211,7 +173,7 @@ def extract_keys(
         )
 
     finally:
-        kernel32.CloseHandle(handle)
+        scanner.close()
 
     if not found:
         raise RuntimeError(

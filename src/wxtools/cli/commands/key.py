@@ -69,9 +69,10 @@ def extract(ctx, account):
     """Extract key from running WeChat process."""
     cfg, ks, state = _get_config_and_keystore(ctx)
 
-    if sys.platform != "win32":
+    if sys.platform not in ("win32", "darwin"):
         msg = (
-            "Key extraction from WeChat process memory is only supported on Windows.\n"
+            "Key extraction requires reading WeChat process memory.\n"
+            "Supported platforms: Windows, macOS.\n"
             "On this platform, use 'wxtools key set <hex-or-json>' to import a known key."
         )
         if state.json_mode:

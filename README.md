@@ -10,15 +10,15 @@
 
 | 能力 | Windows | macOS | Linux（Wine） |
 |------|---------|-------|---------------|
-| 密钥提取（`key extract`） | 支持 | — | — |
+| 密钥提取（`key extract`） | 支持 | 支持 | — |
 | 密钥导入（`key set`） | 支持 | 支持 | 支持 |
 | 查询 / 导出 | 支持 | 支持 | 支持 |
 | 数据目录自动发现 | 支持 | 支持 | 支持（Wine） |
 | 密钥保护方式 | DPAPI | Keychain | Secret Service |
 | 备用保护方式 | 密码 | 密码 | 密码 |
 
-- **Windows**：完整支持，`key extract` 从微信进程内存提取密钥
-- **macOS**：微信 Mac 版数据目录自动发现，通过 `key set` 导入密钥后即可查询/导出
+- **Windows**：完整支持，`key extract` 通过 kernel32 API 读取微信进程内存提取密钥
+- **macOS**：完整支持，`key extract` 通过 Mach VM API 读取微信进程内存提取密钥（需 sudo）
 - **Linux**：无官方微信客户端，支持 Wine 环境下的数据目录发现，通过 `key set` 导入密钥后可查询/导出
 
 ## 安装
@@ -30,7 +30,7 @@ pip install -e .
 pip install pycryptodome   # AES 解密依赖
 ```
 
-要求：Python 3.10+。密钥提取仅限 Windows；密钥导入、查询和导出支持 Windows / macOS / Linux。
+要求：Python 3.10+。密钥提取支持 Windows 和 macOS；密钥导入、查询和导出全平台支持。
 
 如果你在中文 Windows / Anaconda 环境里运行，并且项目路径包含非 ASCII 字符，建议后续统一使用 `python -X utf8 -m wxtools ...`，避免 Python 以 GBK 模式启动时读取 `.pth` 失败。
 
@@ -38,17 +38,17 @@ pip install pycryptodome   # AES 解密依赖
 
 ### 1. 获取密钥（一次性）
 
-**Windows（自动提取）：**
+**Windows / macOS（自动提取）：**
 ```bash
-wxtools key extract   # 需管理员权限 + 微信运行中
+wxtools key extract   # Windows 需管理员权限，macOS 需 sudo；微信需运行中
 ```
-扫描微信进程内存，找到 17 个数据库的加密密钥并加密存储到 `~/.wxtools/keys/`。首次会询问是否设置密码保护，不设置则使用 DPAPI。密钥永久有效，只需提取一次，后续操作不需要管理员权限。
+扫描微信进程内存，找到数据库的加密密钥并加密存储到 `~/.wxtools/keys/`。首次会询问是否设置密码保护，不设置则使用系统密钥��储（Windows DPAPI / macOS Keychain）。密钥永久有效，只需提取一次，后续操作不需要管理员/sudo 权限。
 
-**macOS / Linux（手动导入）：**
+**Linux（手动导入）：**
 ```bash
 wxtools key set <64字符hex密钥或json文件>
 ```
-通过 `key set` 导入已知密钥。密钥保护使用系统密钥存储（macOS Keychain / Linux Secret Service）或密码。
+Linux 无官方微信客户端，通过 `key set` 导入已知密钥。密��保护使用 Secret Service 或密码。
 
 ### 2. 查询
 
@@ -162,7 +162,7 @@ wxtools config set active_account wxid_xxx  # 设置默认账号
 
 - 密钥保护抽象层：统一 DPAPI、macOS Keychain、Linux Secret Service、密码文件四种后端
 - `key set` 成为跨平台标准密钥导入入口
-- macOS / Linux 通过 `key set` 导入密钥，查询和导出全平台可用
+- `key extract` 新增 macOS 支持（Mach VM API 内存扫描）
 - macOS / Linux 数据目录自动发现适配器
 - CI 扩展至 Windows、macOS、Ubuntu 三平台矩阵
 
