@@ -4,7 +4,7 @@
 
 本地解密微信 PC 版（4.x / 3.x）的 SQLCipher 加密数据库，支持关键词搜索、全文检索、按联系人/时间筛选，导出 JSON / CSV / HTML（聊天气泡），附件自动解析与导出。支持公众号消息和朋友圈查询导出。所有数据留在本地。
 
-提供 Claude Code 和 Codex 的 `/wechat` skill，可用自然语言查询聊天记录。
+**用自然语言和 AI 对话，即可完成所有操作** — 内置 `/wechat` skill，支持 Claude Code 和 Codex，无需记忆任何命令。
 
 ## 跨平台支持（v0.4.0+）
 
@@ -35,6 +35,8 @@ pip install pycryptodome   # AES 解密依赖
 如果你在中文 Windows / Anaconda 环境里运行，并且项目路径包含非 ASCII 字符，建议后续统一使用 `python -X utf8 -m wxtools ...`，避免 Python 以 GBK 模式启动时读取 `.pth` 失败。
 
 ## 快速开始
+
+> **提示：** 如果你使用 Claude Code 或 Codex，安装 skill 后直接说 `/wechat 帮我提取密钥` 即可，agent 会引导你完成以下所有步骤。
 
 ### 1. 获取密钥（一次性）
 
@@ -98,29 +100,43 @@ wxtools export --attachments copy -o ./output/   # 同时导出附件文件
 
 所有命令支持 `--json` 输出结构化 JSON，`-v` / `-vv` 开启调试日志。
 
-## AI Skill 集成
+## 通过 AI 对话使用（推荐）
 
-### Claude Code
+安装 skill 后，你可以直接用自然语言和 AI agent 对话，agent 会自动调用 CLI 完成操作 — **无需记忆任何命令**。
+
+### 安装 Skill
 
 ```bash
+# Claude Code
 python -X utf8 -m wxtools install-skill          # 安装到 ~/.claude/skills/
-python -X utf8 -m wxtools uninstall-skill        # 卸载
-```
 
-### Codex
-
-```bash
+# Codex
 python -X utf8 -m wxtools install-skill --codex  # 安装到 ~/.codex/skills/
-python -X utf8 -m wxtools uninstall-skill --codex
 ```
 
-安装后在对话中输入：
+### 对话示例
+
+在 Claude Code 或 Codex 中直接说：
 
 ```
+/wechat 帮我提取微信密钥
 /wechat 找一下上周张三发的关于项目的消息
-/wechat 导出和李四的聊天记录
+/wechat 导出和李四最近一个月的聊天记录，要 HTML 格式
+/wechat 搜索工作群里关于"周报"的消息
+/wechat 查一下我的公众号消息里有没有提到 AI 的
+/wechat 导出张三的朋友圈
 /wechat 密钥状态
+/wechat 缓存占了多少空间
 ```
+
+Agent 会自动：
+- 检测环境（wxtools 是否安装、密钥是否就绪）
+- 将自然语言转换为精确的 CLI 命令执行
+- 处理密码解锁、增量缓存、格式选择等细节
+- 遇到错误时给出修复建议并自动重试
+- 大量导出前征求确认
+
+> **隐私说明：** 所有数据解密和查询在本地完成，CLI 不联网。AI agent 可能使用云端推理处理你的自然语言请求，但原始聊天记录不会上传。
 
 ## 缓存机制
 

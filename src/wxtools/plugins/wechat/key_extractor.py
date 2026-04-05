@@ -23,7 +23,7 @@ from typing import Callable, Dict, Optional, Set
 
 import psutil
 
-from wxtools.core.errors import AdminRequiredError, WeChatNotRunningError
+from wxtools.core.errors import WeChatNotRunningError
 
 logger = logging.getLogger("wxtools.key_extractor")
 
