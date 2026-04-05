@@ -26,7 +26,7 @@ def _make_msg(i, conversation_id="conv1", conversation_title="好友A"):
 
 
 def test_json_writer_single_conversation(tmp_path):
-    from wxtools.cli.exporters.json_writer import JsonWriter
+    from wxtools.exporters.json_writer import JsonWriter
 
     writer = JsonWriter(tmp_path / "export")
     for i in range(5):
@@ -39,7 +39,7 @@ def test_json_writer_single_conversation(tmp_path):
 
 
 def test_json_writer_multiple_conversations(tmp_path):
-    from wxtools.cli.exporters.json_writer import JsonWriter
+    from wxtools.exporters.json_writer import JsonWriter
 
     writer = JsonWriter(tmp_path / "export")
     for i in range(3):

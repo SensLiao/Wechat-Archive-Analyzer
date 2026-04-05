@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from wxtools.api.dependencies import get_config, verify_token
-from wxtools.application import account_service
+from wxtools.services import account_service
 from wxtools.core.config import Config
 from wxtools.core.errors import WxToolsError
 

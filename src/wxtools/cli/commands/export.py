@@ -36,8 +36,8 @@ logger = logging.getLogger("wxtools.cli.export")
 @click.pass_context
 def export(ctx, fmt, output_path, contact, conversation, since, until_date, limit, account, yes, surface, attachments, password):
     """Export messages to file."""
-    from wxtools.application.account_service import resolve_account_and_reader
-    from wxtools.application.export_service import (
+    from wxtools.services.account_service import resolve_account_and_reader
+    from wxtools.services.export_service import (
         CONFIRMATION_THRESHOLD,
         ExportRequest,
         estimate_count,
@@ -61,7 +61,7 @@ def export(ctx, fmt, output_path, contact, conversation, since, until_date, limi
                 pass
 
         # Build filter for count estimation
-        from wxtools.application.export_service import _build_filter
+        from wxtools.services.export_service import _build_filter
         request = ExportRequest(
             format=fmt,
             output_dir=output_path or ".",

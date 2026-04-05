@@ -18,7 +18,7 @@ from wxtools.core.errors import CacheEmptyError
 if TYPE_CHECKING:
     from wxtools.core.config import Config
 
-logger = logging.getLogger("wxtools.application.cache")
+logger = logging.getLogger("wxtools.services.cache")
 
 
 # ---------------------------------------------------------------------------

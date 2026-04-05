@@ -17,7 +17,7 @@ Minimal Electron shell that wraps the wxtools local web app into a native deskto
 ## Run (development)
 
 ```bash
-cd desktop/electron
+cd desktop
 npm install
 npm start
 ```
@@ -28,7 +28,7 @@ npm start
 npm run build
 ```
 
-Output goes to `desktop/electron/dist/`. The build bundles the frontend from `ui/web/dist/` as an extra resource.
+Output goes to `desktop/dist/`. The build bundles the frontend from `web/dist/` as an extra resource.
 
 ## Notes
 

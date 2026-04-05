@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from wxtools.core.config import Config
     from wxtools.plugins.wechat.db_reader import DbReader
 
-logger = logging.getLogger("wxtools.application.account")
+logger = logging.getLogger("wxtools.services.account")
 
 
 # ---------------------------------------------------------------------------

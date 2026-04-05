@@ -26,7 +26,7 @@ def _make_msg(i, is_self=False, conversation_id="conv1", conversation_title="好
 
 
 def test_html_writer_produces_valid_html(tmp_path):
-    from wxtools.cli.exporters.html_writer import HtmlWriter
+    from wxtools.exporters.html_writer import HtmlWriter
 
     writer = HtmlWriter(tmp_path / "export")
     writer.write_message(_make_msg(0, is_self=False))
@@ -43,7 +43,7 @@ def test_html_writer_produces_valid_html(tmp_path):
 
 
 def test_html_writer_index_page(tmp_path):
-    from wxtools.cli.exporters.html_writer import HtmlWriter
+    from wxtools.exporters.html_writer import HtmlWriter
 
     writer = HtmlWriter(tmp_path / "export")
     writer.write_message(_make_msg(0, conversation_id="c1", conversation_title="好友A"))

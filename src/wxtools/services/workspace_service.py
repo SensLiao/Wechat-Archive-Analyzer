@@ -18,7 +18,7 @@ from wxtools.core.errors import WxToolsError
 if TYPE_CHECKING:
     from wxtools.core.config import Config
 
-logger = logging.getLogger("wxtools.application.workspace")
+logger = logging.getLogger("wxtools.services.workspace")
 
 
 # ---------------------------------------------------------------------------

@@ -12,12 +12,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, Optional
 
-from wxtools.cli.exporters.csv_writer import CsvWriter
-from wxtools.cli.exporters.html_writer import HtmlWriter
-from wxtools.cli.exporters.json_writer import JsonWriter
+from wxtools.exporters.csv_writer import CsvWriter
+from wxtools.exporters.html_writer import HtmlWriter
+from wxtools.exporters.json_writer import JsonWriter
 from wxtools.core.schema import Message, MessageFilter
 
-logger = logging.getLogger("wxtools.application.export")
+logger = logging.getLogger("wxtools.services.export")
 
 WRITERS = {"json": JsonWriter, "csv": CsvWriter, "html": HtmlWriter}
 

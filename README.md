@@ -276,9 +276,9 @@ FastAPI 后端（19 个 API 端点）+ React 前端，运行在 `127.0.0.1:8808`
 
 **构建前端（开发者）：**
 ```bash
-cd ui/web
+cd web
 npm install
-npm run build    # 产物输出到 ui/web/dist/
+npm run build    # 产物输出到 web/dist/
 npm run dev      # 开发模式（Vite，HMR）
 ```
 
@@ -309,7 +309,7 @@ API 绑定 `127.0.0.1`，不暴露公网。所有受保护端点需要 `X-Sessio
 Electron 桌面壳，将 Web App 封装为原生窗口：
 
 ```bash
-cd desktop/electron
+cd desktop
 npm install
 npm start
 ```

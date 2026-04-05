@@ -32,7 +32,7 @@ def start(ctx, host, port, open):
     state = ctx.obj
 
     # Determine static dir — look for built frontend
-    static_dir = Path(__file__).resolve().parents[3] / "ui" / "web" / "dist"
+    static_dir = Path(__file__).resolve().parents[3] / "web" / "dist"
     if not static_dir.is_dir():
         static_dir = None
 
@@ -47,7 +47,7 @@ def start(ctx, host, port, open):
         if static_dir:
             click.echo(f"Frontend: {url}")
         else:
-            click.echo("Frontend not built. Run 'cd ui/web && npm run build' first.")
+            click.echo("Frontend not built. Run 'cd web && npm run build' first.")
         click.echo("Press Ctrl+C to stop.\n")
 
     if open and not (state and state.json_mode):

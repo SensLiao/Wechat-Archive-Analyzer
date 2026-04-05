@@ -14,7 +14,7 @@ from typing import Optional
 
 from wxtools.core.schema import MessageFilter, QueryResult
 
-logger = logging.getLogger("wxtools.application.query_service")
+logger = logging.getLogger("wxtools.services.query_service")
 
 
 # ---------------------------------------------------------------------------

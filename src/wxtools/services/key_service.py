@@ -31,7 +31,7 @@ from wxtools.core.unlock_session import UnlockSession
 if TYPE_CHECKING:
     from wxtools.core.config import Config
 
-logger = logging.getLogger("wxtools.application.key")
+logger = logging.getLogger("wxtools.services.key")
 
 
 # ---------------------------------------------------------------------------

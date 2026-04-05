@@ -27,7 +27,7 @@ def _make_msg(i, conversation_title="好友A"):
 
 
 def test_csv_writer_produces_valid_csv(tmp_path):
-    from wxtools.cli.exporters.csv_writer import CsvWriter
+    from wxtools.exporters.csv_writer import CsvWriter
 
     writer = CsvWriter(tmp_path / "export")
     for i in range(5):

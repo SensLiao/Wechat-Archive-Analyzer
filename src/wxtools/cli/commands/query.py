@@ -33,8 +33,8 @@ logger = logging.getLogger("wxtools.cli.query")
 @click.pass_context
 def query(ctx, keyword, contact, conversation, since, until_date, msg_type, limit, offset, sql, account, surface, attachments, password):
     """Search messages in decrypted WeChat databases."""
-    from wxtools.application.account_service import resolve_account_and_reader
-    from wxtools.application.query_service import QueryRequest, search, search_raw_sql
+    from wxtools.services.account_service import resolve_account_and_reader
+    from wxtools.services.query_service import QueryRequest, search, search_raw_sql
 
     state = ctx.obj
     cfg = load_config()

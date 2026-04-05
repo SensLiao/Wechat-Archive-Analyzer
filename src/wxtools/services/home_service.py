@@ -9,15 +9,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from wxtools.application.account_service import list_accounts
-from wxtools.application.cache_service import get_status as get_cache_status
-from wxtools.application.key_service import get_status as get_key_status
+from wxtools.services.account_service import list_accounts
+from wxtools.services.cache_service import get_status as get_cache_status
+from wxtools.services.key_service import get_status as get_key_status
 from wxtools.core.keystore import Keystore
 
 if TYPE_CHECKING:
     from wxtools.core.config import Config
 
-logger = logging.getLogger("wxtools.application.home")
+logger = logging.getLogger("wxtools.services.home")
 
 
 def get_summary(cfg: Config) -> dict[str, Any]:

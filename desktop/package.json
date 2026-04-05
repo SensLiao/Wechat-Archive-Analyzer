@@ -25,7 +25,7 @@
     },
     "extraResources": [
       {
-        "from": "../../ui/web/dist",
+        "from": "../web/dist",
         "to": "frontend"
       }
     ]

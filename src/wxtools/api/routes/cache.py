@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from wxtools.api.dependencies import get_config, verify_token
-from wxtools.application import cache_service
+from wxtools.services import cache_service
 from wxtools.core.config import Config
 from wxtools.core.errors import WxToolsError
 
