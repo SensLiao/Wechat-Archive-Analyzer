@@ -23,6 +23,20 @@ interface BackendExportResponse {
   files: string[]
   output_dir: string
   format: string
+  download_id?: string
+}
+
+/** Trigger a browser download for an export by opening the download URL. */
+function triggerDownload(downloadId: string) {
+  const token = (window as unknown as Record<string, unknown>).__WXTOOLS_TOKEN__ as string
+  const url = `/api/export/download/${downloadId}?token=${encodeURIComponent(token)}`
+  // Use a hidden anchor to trigger the download without navigating away
+  const a = document.createElement('a')
+  a.href = url
+  a.download = ''
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
 }
 
 function Exports() {
@@ -44,7 +58,6 @@ function Exports() {
   // Step 3: Format
   const [format, setFormat] = useState<ExportFormat>('html')
   const [attachments, setAttachments] = useState(false)
-  const [outputDir, setOutputDir] = useState('')
 
   // Step 4: Export state
   const [exporting, setExporting] = useState(false)
@@ -80,7 +93,6 @@ function Exports() {
 
     const body: Record<string, unknown> = {
       format,
-      output_dir: outputDir || undefined,
       template: selectedTemplate || undefined,
       attachments: attachments ? 'copy' : undefined,
       surface: SOURCE_TO_SURFACE[source],
@@ -105,6 +117,12 @@ function Exports() {
         body: JSON.stringify(body),
       })
 
+      // Trigger browser download
+      if (result.download_id) {
+        setExportProgress('正在下载...')
+        triggerDownload(result.download_id)
+      }
+
       const newRecord: ExportRecord = {
         id: `export-${Date.now()}`,
         template: selectedTemplate || undefined,
@@ -114,10 +132,10 @@ function Exports() {
         file_count: result.files.length,
         created: new Date().toLocaleString(),
         status: 'completed',
-        output_dir: result.output_dir,
+        download_id: result.download_id,
       }
       setRecentExports((prev) => [newRecord, ...prev])
-      setExportProgress('导出完成')
+      setExportProgress('导出完成，文件已开始下载')
     } catch (err) {
       setError(err instanceof Error ? err.message : '导出失败')
       setExportProgress(null)
@@ -364,16 +382,9 @@ function Exports() {
               </label>
             </div>
 
-            <label className="facet-label">
-              输出目录 (可选)
-              <input
-                type="text"
-                className="facet-input"
-                value={outputDir}
-                onChange={(e) => setOutputDir(e.target.value)}
-                placeholder="留空使用默认目录..."
-              />
-            </label>
+            <p className="text-muted" style={{ marginTop: 'var(--space-sm)' }}>
+              导出完成后将自动下载 .zip 文件到浏览器
+            </p>
 
             <div className="btn-group" style={{ marginTop: 'var(--space-lg)' }}>
               <button
@@ -409,12 +420,8 @@ function Exports() {
                 <dd>{format.toUpperCase()}</dd>
                 <dt>附件</dt>
                 <dd>{attachments ? '包含' : '不包含'}</dd>
-                {outputDir && (
-                  <>
-                    <dt>输出目录</dt>
-                    <dd className="mono">{outputDir}</dd>
-                  </>
-                )}
+                <dt>输出方式</dt>
+                <dd>浏览器下载 (.zip)</dd>
               </dl>
             </div>
 
@@ -452,6 +459,7 @@ function Exports() {
             exports={recentExports}
             loading={false}
             onReExport={handleReExport}
+            onDownload={triggerDownload}
           />
         </section>
       )}

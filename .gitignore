@@ -41,16 +41,30 @@ scripts/
 .pytest_cache/
 .coverage
 htmlcov/
+.tmp_home/
 
 # Node.js / Frontend
 node_modules/
 ui/web/dist/
+web/dist/
 
 # Desktop build artifacts
 desktop/build/pyinstaller-output/
 desktop/build/pyinstaller-work/
 desktop/dist/
+desktop/package-lock.json
 
 # wxtools export artifacts (default output lands in repo root)
 conversations/
 manifest.json
+
+# Selenium / browser testing profiles
+web/.edge-profile*/
+web/.vite-dev*.log
+web/.vite-dev*.err.log
+
+# Screenshots from testing
+web/*.png
+
+# TypeScript build info
+web/tsconfig.tsbuildinfo

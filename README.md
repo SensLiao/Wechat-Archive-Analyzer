@@ -40,7 +40,7 @@ Local-first toolkit for decrypting WeChat PC (4.x / 3.x) SQLCipher-encrypted dat
 | **Key Extraction** | One-time memory scan, HMAC-SHA512 per-DB key derivation, secure storage (DPAPI / Keychain / password) |
 | **Decryption** | SQLCipher 4 AES-256-CBC, incremental shard-level cache, automatic new-message sync |
 | **Query** | Keyword, contact, conversation, date range, message type; FTS5 full-text with CJK optimization |
-| **Export** | JSON / CSV / HTML (chat bubble UI), attachment resolve / check / copy |
+| **Export** | JSON / CSV / HTML (chat bubble UI), browser download (.zip), attachment resolve / check / copy |
 | **Data Surfaces** | Chat, Official Accounts, Moments, cross-surface unified search |
 | **AI Skill** | `/wechat` for Claude Code & Codex — natural language to CLI, auto error recovery |
 | **Web UI** | React SPA with search center, workspace, export wizard; FastAPI backend with typed API envelope |
@@ -147,7 +147,7 @@ Five pages available:
 | **Home** | See account overview, key status, cache stats, quick actions |
 | **Search Center** | Keyword + faceted filters (contact / group / date / type / surface) |
 | **Workspace** | Collect materials across surfaces, add tags and notes |
-| **Export Wizard** | 4-step guided export: source → template → format → execute |
+| **Export Wizard** | 4-step guided export: source → template → format → browser download (.zip) |
 | **Settings** | Account management, key operations, cache control |
 
 #### Option C: AI Skill (Claude Code / Codex)
@@ -222,7 +222,7 @@ wxtools query --surface all "keyword"                  # Search everywhere
 | **Cache** | Local filesystem only, user-permission protected |
 | **Network** | Web API binds `127.0.0.1` only, one-time session token, no outbound connections |
 | **Source DBs** | Read-only access — wxtools never modifies WeChat databases |
-| **Exports** | Output to local filesystem only |
+| **Exports** | Browser download (.zip) in Web UI; CLI writes to local filesystem |
 | **API Responses** | Typed `ApiEnvelope` wrapper with error codes, no sensitive data in error messages |
 
 Admin/sudo privileges are **only** needed for `key extract` (process memory reading). All other operations run as normal user.
@@ -265,7 +265,7 @@ wxtools app start --port 9000         # Custom port
 wxtools app start --no-open           # Don't auto-open browser
 ```
 
-FastAPI backend + React frontend at `127.0.0.1:8808`. One-time session token auto-passed to frontend.
+FastAPI backend + React frontend at `127.0.0.1:8808`. Session token injected server-side into every page load — survives refreshes and server restarts. Port auto-reclaimed if a previous instance didn't shut down cleanly.
 
 ### Desktop App (Electron)
 
@@ -337,7 +337,8 @@ Protected endpoints require `X-Session-Token` header.
 | POST | `/api/workspaces` | Create workspace |
 | GET/DELETE | `/api/workspaces/{id}` | Get/delete workspace |
 | GET | `/api/export/templates` | Export template list |
-| POST | `/api/export/run` | Execute export |
+| POST | `/api/export` | Execute export (returns `download_id` for browser download) |
+| GET | `/api/export/download/{id}` | Download exported .zip file (token via query param) |
 | GET | `/api/onboarding/status` | First-run onboarding status |
 | POST | `/api/onboarding/extract-key` | Trigger key extraction (onboarding) |
 | POST | `/api/onboarding/verify` | Verify key (onboarding) |

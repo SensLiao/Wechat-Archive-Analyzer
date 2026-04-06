@@ -9,13 +9,14 @@ export interface ExportRecord {
   created: string
   status: 'completed' | 'in_progress' | 'failed'
   output_dir?: string
+  download_id?: string
 }
 
 interface RecentExportsProps {
   exports: ExportRecord[]
   loading?: boolean
   onReExport?: (record: ExportRecord) => void
-  onOpenDir?: (dir: string) => void
+  onDownload?: (downloadId: string) => void
   compact?: boolean
 }
 
@@ -29,7 +30,7 @@ function RecentExports({
   exports: records,
   loading = false,
   onReExport,
-  onOpenDir,
+  onDownload,
   compact = false,
 }: RecentExportsProps) {
   if (loading) {
@@ -87,13 +88,13 @@ function RecentExports({
               <td>{rec.file_count ?? rec.record_count}</td>
               <td>
                 <div className="btn-group">
-                  {rec.output_dir && onOpenDir && (
+                  {rec.download_id && onDownload && (
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      onClick={() => onOpenDir(rec.output_dir!)}
+                      onClick={() => onDownload(rec.download_id!)}
                     >
-                      打开目录
+                      下载
                     </button>
                   )}
                   {onReExport && (

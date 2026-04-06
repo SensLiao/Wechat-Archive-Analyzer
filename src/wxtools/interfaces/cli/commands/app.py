@@ -9,6 +9,72 @@ import click
 logger = logging.getLogger("wxtools.interfaces.cli.app")
 
 
+def _free_port(host: str, port: int) -> bool:
+    """Kill any leftover process occupying *host:port*.
+
+    Returns True if the port is (now) free, False if we couldn't free it.
+    """
+    import socket, time
+
+    # Quick check — if we can bind, the port is already free
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            pass  # port in use — try to reclaim it
+
+    logger.info("Port %d is in use, attempting to reclaim…", port)
+
+    # Platform-specific: find and kill the process holding the port
+    import subprocess, sys
+
+    if sys.platform == "win32":
+        # netstat -ano | findstr :<port>.*LISTENING → extract PID
+        try:
+            out = subprocess.check_output(
+                f"netstat -ano | findstr :{port}",
+                shell=True, text=True, stderr=subprocess.DEVNULL,
+            )
+            for line in out.strip().splitlines():
+                if "LISTENING" in line:
+                    pid = line.strip().split()[-1]
+                    if pid.isdigit():
+                        subprocess.run(
+                            ["taskkill", "/PID", pid, "/F"],
+                            capture_output=True,
+                        )
+                        click.echo(f"Stopped previous server (PID {pid}) on port {port}.")
+                        break
+        except subprocess.CalledProcessError:
+            pass
+    else:
+        # Unix: lsof -ti :<port> → kill
+        try:
+            out = subprocess.check_output(
+                ["lsof", "-ti", f":{port}"],
+                text=True, stderr=subprocess.DEVNULL,
+            )
+            for pid in out.strip().splitlines():
+                if pid.isdigit():
+                    subprocess.run(["kill", "-9", pid], capture_output=True)
+                    click.echo(f"Stopped previous server (PID {pid}) on port {port}.")
+                    break
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+
+    # Wait for the port to actually free (TIME_WAIT may linger briefly)
+    for _ in range(10):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind((host, port))
+                return True
+            except OSError:
+                time.sleep(0.5)
+
+    return False
+
+
 @click.group()
 def app():
     """Manage the local Web App."""
@@ -28,6 +94,13 @@ def start(ctx, host, port, open):
     from pathlib import Path
 
     from wxtools.interfaces.api.app import create_app
+
+    # Reclaim port if a previous server didn't shut down cleanly
+    if not _free_port(host, port):
+        raise click.ClickException(
+            f"Port {port} is still in use and could not be freed. "
+            f"Try a different port: wxtools app start --port {port + 1}"
+        )
 
     state = ctx.obj
 

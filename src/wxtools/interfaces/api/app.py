@@ -90,6 +90,7 @@ def create_app(*, static_dir: Path | None = None) -> tuple[FastAPI, str]:
     app.include_router(query.router, prefix="/api")
     app.include_router(workspaces.router, prefix="/api")
     app.include_router(export.router, prefix="/api")
+    app.include_router(export.download_router, prefix="/api")
     app.include_router(cache.router, prefix="/api")
 
     # Health check (no auth required)
