@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_key_extract_and_verify():
     from click.testing import CliRunner
-    from wxtools.cli.main import cli
+    from wxtools.interfaces.cli.main import cli
     runner = CliRunner()
     result = runner.invoke(cli, ["--json", "key", "extract"])
     assert result.exit_code == 0 or "already stored" in result.output
@@ -23,7 +23,7 @@ def test_key_extract_and_verify():
 
 def test_query_with_session():
     from click.testing import CliRunner
-    from wxtools.cli.main import cli
+    from wxtools.interfaces.cli.main import cli
     runner = CliRunner()
     result = runner.invoke(cli, ["--json", "query", "你好", "--limit", "5"])
     assert result.exit_code == 0
@@ -32,7 +32,7 @@ def test_query_with_session():
 def test_export_all_formats():
     import tempfile
     from click.testing import CliRunner
-    from wxtools.cli.main import cli
+    from wxtools.interfaces.cli.main import cli
     runner = CliRunner()
     for fmt in ["json", "csv", "html"]:
         with tempfile.TemporaryDirectory() as td:

@@ -1,4 +1,4 @@
-from wxtools.core.config import Config, load_config
+from wxtools.runtime.config import Config, load_config
 
 
 def test_default_config_values():

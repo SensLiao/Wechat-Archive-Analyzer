@@ -2,10 +2,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-from wxtools.plugins.wechat.path_discovery import discover_data_dir
-from wxtools.plugins.wechat.path_discovery.windows import WindowsPathDiscoverer
-from wxtools.plugins.wechat.path_discovery.macos import MacosPathDiscoverer
-from wxtools.plugins.wechat.path_discovery.linux import LinuxPathDiscoverer
+from wxtools.infrastructure.wechat.path_discovery import discover_data_dir
+from wxtools.infrastructure.wechat.path_discovery.windows import WindowsPathDiscoverer
+from wxtools.infrastructure.wechat.path_discovery.macos import MacosPathDiscoverer
+from wxtools.infrastructure.wechat.path_discovery.linux import LinuxPathDiscoverer
 
 
 class TestWindowsPathDiscoverer:

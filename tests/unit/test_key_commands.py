@@ -6,7 +6,7 @@ import struct
 from unittest.mock import patch, MagicMock
 
 from click.testing import CliRunner
-from wxtools.cli.main import cli
+from wxtools.interfaces.cli.main import cli
 
 PAGE_SIZE = 4096
 SALT_SIZE = 16
@@ -50,14 +50,14 @@ class TestKeyVerify:
         db_dir, keys_dir, key_data = _setup_fake_account(tmp_path, key_hex)
 
         # Store key in keystore (password mode for cross-platform)
-        from wxtools.core.keystore import Keystore
+        from wxtools.infrastructure.secrets.keystore import Keystore
         ks = Keystore(keys_dir)
         ks.store_key("wechat", "wxid_test", key_data.encode("ascii"),
                       protection="password", password="testpass")
 
         runner = CliRunner()
-        with patch("wxtools.cli.commands.key.load_config") as mock_cfg, \
-             patch("wxtools.cli.commands.key._resolve_account", return_value="wxid_test"):
+        with patch("wxtools.interfaces.cli.commands.key.load_config") as mock_cfg, \
+             patch("wxtools.interfaces.cli.commands.key._resolve_account", return_value="wxid_test"):
             cfg = MagicMock()
             cfg.keys_dir = keys_dir
             cfg.get.return_value = str(db_dir)
@@ -75,8 +75,8 @@ class TestKeyVerify:
         (tmp_path / ".wxtools" / "logs").mkdir(parents=True)
 
         runner = CliRunner()
-        with patch("wxtools.cli.commands.key.load_config") as mock_cfg, \
-             patch("wxtools.cli.commands.key._resolve_account", return_value=None):
+        with patch("wxtools.interfaces.cli.commands.key.load_config") as mock_cfg, \
+             patch("wxtools.interfaces.cli.commands.key._resolve_account", return_value=None):
             cfg = MagicMock()
             cfg.keys_dir = keys_dir
             mock_cfg.return_value = cfg
@@ -91,8 +91,8 @@ class TestKeySet:
         db_dir, keys_dir, _ = _setup_fake_account(tmp_path, key_hex)
 
         runner = CliRunner()
-        with patch("wxtools.cli.commands.key.load_config") as mock_cfg, \
-             patch("wxtools.cli.commands.key._resolve_account", return_value="wxid_test"):
+        with patch("wxtools.interfaces.cli.commands.key.load_config") as mock_cfg, \
+             patch("wxtools.interfaces.cli.commands.key._resolve_account", return_value="wxid_test"):
             cfg = MagicMock()
             cfg.keys_dir = keys_dir
 
@@ -126,8 +126,8 @@ class TestKeySet:
         (tmp_path / ".wxtools" / "logs").mkdir(parents=True)
 
         runner = CliRunner()
-        with patch("wxtools.cli.commands.key.load_config") as mock_cfg, \
-             patch("wxtools.cli.commands.key._resolve_account", return_value="wxid_test"):
+        with patch("wxtools.interfaces.cli.commands.key.load_config") as mock_cfg, \
+             patch("wxtools.interfaces.cli.commands.key._resolve_account", return_value="wxid_test"):
             cfg = MagicMock()
             cfg.keys_dir = keys_dir
             mock_cfg.return_value = cfg
@@ -144,9 +144,9 @@ class TestKeyExtractPlatformGuard:
         (tmp_path / ".wxtools" / "logs").mkdir(parents=True)
 
         runner = CliRunner()
-        with patch("wxtools.cli.commands.key.load_config") as mock_cfg, \
-             patch("wxtools.cli.commands.key._resolve_account", return_value="wxid_test"), \
-             patch("wxtools.cli.commands.key.sys") as mock_sys:
+        with patch("wxtools.interfaces.cli.commands.key.load_config") as mock_cfg, \
+             patch("wxtools.interfaces.cli.commands.key._resolve_account", return_value="wxid_test"), \
+             patch("wxtools.interfaces.cli.commands.key.sys") as mock_sys:
             mock_sys.platform = "linux"
             cfg = MagicMock()
             cfg.keys_dir = keys_dir

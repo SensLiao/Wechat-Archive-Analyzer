@@ -3,8 +3,8 @@
 import sqlite3
 from datetime import datetime, timezone
 
-from wxtools.core.schema import MessageFilter
-from wxtools.plugins.wechat.sns_reader import SnsReader, _parse_timeline_xml
+from wxtools.domain.schema import MessageFilter
+from wxtools.infrastructure.wechat.sns_reader import SnsReader, _parse_timeline_xml
 
 
 def _make_sns_xml(post_id, username, create_time, content_desc):

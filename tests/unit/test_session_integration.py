@@ -1,7 +1,7 @@
 """Tests verifying session-aware key retrieval logic."""
 import pytest
-from wxtools.core.keystore import Keystore
-from wxtools.core.unlock_session import UnlockSession
+from wxtools.infrastructure.secrets.keystore import Keystore
+from wxtools.infrastructure.secrets.unlock_session import UnlockSession
 
 def test_session_key_retrieval_bypasses_password(tmp_path):
     keys_dir = tmp_path / "keys"

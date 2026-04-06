@@ -3,9 +3,9 @@ import sys
 
 import pytest
 
-from wxtools.core.secret_backends.base import SecretBackend
-from wxtools.core.secret_backends.dpapi import DpapiBackend
-from wxtools.core.secret_backends.password_file import PasswordFileBackend
+from wxtools.infrastructure.secrets.backends.base import SecretBackend
+from wxtools.infrastructure.secrets.backends.dpapi import DpapiBackend
+from wxtools.infrastructure.secrets.backends.password_file import PasswordFileBackend
 
 
 class TestPasswordFileBackend:
@@ -69,7 +69,7 @@ class TestDpapiBackend:
 # ---------------------------------------------------------------------------
 from unittest.mock import patch  # noqa: E402
 
-from wxtools.core.secret_backends.macos_keychain import MacosKeychainBackend  # noqa: E402
+from wxtools.infrastructure.secrets.backends.macos_keychain import MacosKeychainBackend  # noqa: E402
 
 
 class TestMacosKeychainBackend:
@@ -110,7 +110,7 @@ class TestMacosKeychainBackend:
 # ---------------------------------------------------------------------------
 # Linux Secret Service backend
 # ---------------------------------------------------------------------------
-from wxtools.core.secret_backends.linux_secret_service import LinuxSecretServiceBackend  # noqa: E402
+from wxtools.infrastructure.secrets.backends.linux_secret_service import LinuxSecretServiceBackend  # noqa: E402
 
 
 class TestLinuxSecretServiceBackend:
@@ -154,7 +154,7 @@ class TestLinuxSecretServiceBackend:
 # ---------------------------------------------------------------------------
 # Backend factory
 # ---------------------------------------------------------------------------
-from wxtools.core.secret_backends import get_backend, list_backends  # noqa: E402
+from wxtools.infrastructure.secrets.backends import get_backend, list_backends  # noqa: E402
 
 
 class TestBackendFactory:

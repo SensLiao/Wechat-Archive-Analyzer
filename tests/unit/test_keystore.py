@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from wxtools.core.keystore import Keystore
+from wxtools.infrastructure.secrets.keystore import Keystore
 
 
 @pytest.fixture
@@ -72,7 +72,7 @@ class TestKeystoreBackwardCompat:
 
     @pytest.mark.skipif(sys.platform != "win32", reason="DPAPI only on Windows")
     def test_reads_v1_dpapi_format(self, keystore):
-        from wxtools.core.secret_backends.dpapi import _dpapi_encrypt
+        from wxtools.infrastructure.secrets.backends.dpapi import _dpapi_encrypt
         key = bytes.fromhex("ab" * 32)
         encrypted = b"\x01" + b"\x00" + _dpapi_encrypt(key)
         key_path = keystore._key_path("wechat", "wxid_compat_dpapi")

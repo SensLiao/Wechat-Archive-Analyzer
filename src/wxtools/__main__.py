@@ -14,7 +14,7 @@ def main() -> None:
     # Ensure UTF-8 mode for any child processes or late imports
     os.environ["PYTHONUTF8"] = "1"
 
-    from wxtools.cli.main import cli
+    from wxtools.interfaces.cli.main import cli
 
     cli()
 

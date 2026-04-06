@@ -7,7 +7,7 @@ packages = ["src/wxtools"]
 
 [project]
 name = "wxtools"
-version = "0.5.0"
+version = "0.6.0"
 description = "Local-first WeChat chat history decryption and analysis toolkit"
 requires-python = ">=3.9"
 license = "MIT"
@@ -25,10 +25,7 @@ fast = ["pysqlcipher3>=1.2"]
 dev = ["pytest>=7.0", "ruff>=0.4", "pycryptodome>=3.19", "httpx>=0.27"]
 
 [project.scripts]
-wxtools = "wxtools.cli.main:cli"
-
-[project.entry-points."wxtools.plugins"]
-wechat = "wxtools.plugins.wechat:WeChatPlugin"
+wxtools = "wxtools.interfaces.cli.main:cli"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

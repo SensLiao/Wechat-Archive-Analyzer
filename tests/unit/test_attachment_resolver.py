@@ -1,6 +1,6 @@
 """Tests for attachment path resolution, existence check, and copy."""
 import pytest
-from wxtools.plugins.wechat.attachment_resolver import AttachmentResolver
+from wxtools.infrastructure.wechat.attachment_resolver import AttachmentResolver
 
 
 @pytest.fixture

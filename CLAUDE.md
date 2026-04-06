@@ -110,18 +110,26 @@ All project documents are in `Project_docs/` (git-ignored, local-only). v1 docs 
 
 ```
 wxtools/
-├── src/wxtools/           # Python package
-│   ├── core/              # Infrastructure: config, keystore, errors, acl, secrets
-│   ├── plugins/wechat/    # WeChat IM source implementation
-│   ├── services/          # Application services (shared by CLI, API, skill)
-│   ├── exporters/         # Export format writers (JSON, CSV, HTML)
-│   ├── cli/               # Click CLI entry point (thin adapter)
-│   ├── api/               # FastAPI REST API entry point (thin adapter)
-│   └── adapters/          # AI agent skill templates (Claude Code, Codex)
-├── web/                   # React SPA (Vite + TypeScript)
-├── desktop/               # Electron desktop shell (PoC)
+├── src/wxtools/                  # Python package
+│   ├── domain/                   # Core models (schema.py) and error hierarchy (errors.py)
+│   ├── runtime/                  # Config, logging, platform detection, bootstrap, app_host, paths
+│   ├── infrastructure/
+│   │   ├── wechat/               # WeChat data access: account discovery, key extraction, decryption, DB reading
+│   │   ├── secrets/              # Keystore, unlock session, secret backends (DPAPI, Keychain, etc.)
+│   │   ├── storage/              # ACL, workspace/export storage
+│   │   └── exporters/            # Export format writers (JSON, CSV, HTML)
+│   ├── application/              # Business services (shared by all interfaces)
+│   ├── interfaces/
+│   │   ├── cli/                  # Click CLI entry point (thin adapter)
+│   │   ├── api/                  # FastAPI REST API with ApiEnvelope response model
+│   │   └── desktop/              # Electron desktop backend entry point
+│   └── adapters/                 # AI agent skill templates (Claude Code, Codex)
+├── web/                          # React SPA (Vite + TypeScript)
+├── desktop/                      # Electron desktop shell + build pipeline
+│   ├── build/                    # PyInstaller spec
+│   └── scripts/                  # Build orchestration
 ├── tests/
-├── docs/                  # diagrams, conversations, etc.
+├── docs/
 ├── evals/
 ├── pyproject.toml
 └── CLAUDE.md
@@ -130,20 +138,23 @@ wxtools/
 ### Dependency direction (strict one-way)
 
 ```
-cli/ ─┐
-      ├──→ services/ ──→ plugins/ ──→ core/
-api/ ─┘       │
-              └──→ exporters/ ──→ core/
+interfaces/cli/ ─┐
+interfaces/api/ ─┤──→ application/ ──→ infrastructure/wechat/ ──→ domain/
+interfaces/desktop/─┘       │                    │
+                            └──→ infrastructure/exporters/ ──→ domain/
+                            └──→ infrastructure/secrets/   ──→ domain/
 ```
 
 ## Development Rules
 
 - `Project_docs/` is git-ignored — design docs are local-only
 - Core package lives under `src/wxtools/`
-- `cli/` and `api/` are thin adapters — all business logic lives in `services/`
-- `exporters/` is a shared module used by services, not tied to CLI or API
+- `interfaces/cli/` and `interfaces/api/` are thin adapters — all business logic lives in `application/`
+- `infrastructure/exporters/` is a shared module used by application services
 - All CLI commands support `--json` flag for programmatic output
-- v1 scope is WeChat only; plugin/adapter architecture is in place for future IM sources but do not build them yet
+- V6 dual-track: `main` branch = public CLI + skill; `desktop-local` branch = private Electron app
+- Plugin abstraction removed in V6 — single data source (WeChat), no multi-source registry
+- All API routes return `ApiEnvelope` wrapper: `{"ok": bool, "data": T, "error": {...}}`
 - **Auto-push rule:** 在 implementation 过程中，当代码变更已成熟（bug fix、feature 完成、配置修正等不需要用户额外决策的改动），完成 commit 后应立即 `git push` 到 GitHub，无需每次询问用户确认
 
 ## Questions.md Maintenance Rule

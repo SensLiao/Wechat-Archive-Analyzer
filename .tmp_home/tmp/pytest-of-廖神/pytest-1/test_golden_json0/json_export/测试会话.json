@@ -1,0 +1,38 @@
+{
+  "messages": [
+    {
+      "id": "golden:1",
+      "server_id": 1001,
+      "conversation_id": "test_conv",
+      "conversation_title": "测试会话",
+      "sender_id": "friend",
+      "sender_name": "小明",
+      "is_self": false,
+      "timestamp": "2026-01-15T10:30:00+00:00",
+      "type": "text",
+      "content": "你好，这是一条测试消息",
+      "raw_type": 1,
+      "raw_sub_type": 0,
+      "attachment_path": null,
+      "source_db": "message_0.db",
+      "surface": "chat"
+    },
+    {
+      "id": "golden:2",
+      "server_id": 1002,
+      "conversation_id": "test_conv",
+      "conversation_title": "测试会话",
+      "sender_id": "me",
+      "sender_name": "我",
+      "is_self": true,
+      "timestamp": "2026-01-15T10:31:00+00:00",
+      "type": "text",
+      "content": "收到！",
+      "raw_type": 1,
+      "raw_sub_type": 0,
+      "attachment_path": null,
+      "source_db": "message_0.db",
+      "surface": "chat"
+    }
+  ]
+}

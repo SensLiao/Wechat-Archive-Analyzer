@@ -41,7 +41,7 @@ def _make_encrypted_db(path: Path, key_hex: str) -> None:
 
 
 def test_decrypt_all_writes_cache_meta(tmp_path):
-    from wxtools.plugins.wechat.decryptor import Decryptor
+    from wxtools.infrastructure.wechat.decryptor import Decryptor
 
     key_hex = "ab" * 32
     source_dir = tmp_path / "source" / "message"

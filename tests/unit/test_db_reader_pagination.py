@@ -2,8 +2,8 @@
 import sqlite3
 import hashlib
 import pytest
-from wxtools.core.schema import MessageFilter
-from wxtools.plugins.wechat.db_reader import DbReader
+from wxtools.domain.schema import MessageFilter
+from wxtools.infrastructure.wechat.db_reader import DbReader
 
 
 @pytest.fixture

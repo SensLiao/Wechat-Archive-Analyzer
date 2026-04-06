@@ -2,7 +2,7 @@
 import hashlib
 import hmac as hmac_mod
 import struct
-from wxtools.plugins.wechat.key_validator import validate_key_for_db, validate_key_for_account
+from wxtools.infrastructure.wechat.key_validator import validate_key_for_db, validate_key_for_account
 
 PAGE_SIZE = 4096
 SALT_SIZE = 16

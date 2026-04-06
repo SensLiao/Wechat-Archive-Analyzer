@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat Export Index</title>
+<style>* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, "Microsoft YaHei", sans-serif; background: #ebebeb; padding: 20px; max-width: 800px; margin: 0 auto; }
+h1 { text-align: center; margin-bottom: 20px; font-size: 1.2em; color: #333; }
+.date-sep { text-align: center; margin: 16px 0 8px; font-size: 0.85em; color: #999; }
+.msg { display: flex; margin: 8px 0; align-items: flex-start; }
+.msg.self { flex-direction: row-reverse; }
+.avatar { width: 40px; height: 40px; border-radius: 4px; background: #ccc; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; flex-shrink: 0; }
+.msg.self .avatar { background: #7bb342; }
+.bubble-wrap { max-width: 70%; margin: 0 10px; }
+.sender { font-size: 0.75em; color: #888; margin-bottom: 2px; }
+.msg.self .sender { text-align: right; }
+.bubble { padding: 10px 14px; border-radius: 8px; background: #fff; word-wrap: break-word; line-height: 1.5; position: relative; }
+.msg.self .bubble { background: #95ec69; }
+.time { font-size: 0.7em; color: #aaa; margin-top: 2px; }
+.msg.self .time { text-align: right; }
+.bubble img { max-width: 100%; border-radius: 4px; }
+.index-list { list-style: none; padding: 0; }
+.index-list li { padding: 12px 16px; background: #fff; margin: 4px 0; border-radius: 8px; }
+.index-list li a { text-decoration: none; color: #333; font-size: 1em; }
+.index-list li a:hover { color: #07c160; }
+</style>
+</head>
+<body>
+<h1>Chat Export Index</h1>
+<ul class="index-list">
+<li><a href="conversations\好友A.html">好友A (1 messages)</a></li>
+<li><a href="conversations\好友B.html">好友B (1 messages)</a></li>
+</ul>
+</body>
+</html>

@@ -46,6 +46,11 @@ htmlcov/
 node_modules/
 ui/web/dist/
 
+# Desktop build artifacts
+desktop/build/pyinstaller-output/
+desktop/build/pyinstaller-work/
+desktop/dist/
+
 # wxtools export artifacts (default output lands in repo root)
 conversations/
 manifest.json

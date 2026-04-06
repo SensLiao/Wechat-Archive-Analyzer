@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "decrypted_at": "2026-04-05T07:38:50.760193+00:00",
+  "databases": [
+    {
+      "source": "message/message_0.db",
+      "source_mtime": "2026-04-05T07:38:50.756957+00:00",
+      "size_bytes": 4096,
+      "decrypted_at": "2026-04-05T07:38:50.760193+00:00"
+    }
+  ]
+}

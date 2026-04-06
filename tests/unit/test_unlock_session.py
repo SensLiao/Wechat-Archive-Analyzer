@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from wxtools.core.unlock_session import UnlockSession
+from wxtools.infrastructure.secrets.unlock_session import UnlockSession
 
 
 @pytest.fixture

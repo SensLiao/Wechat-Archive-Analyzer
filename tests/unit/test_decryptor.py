@@ -1,5 +1,5 @@
 import json
-from wxtools.plugins.wechat.decryptor import Decryptor, _needs_redecrypt, _parse_key_data
+from wxtools.infrastructure.wechat.decryptor import Decryptor, _needs_redecrypt, _parse_key_data
 
 
 def test_needs_redecrypt_no_cache(tmp_path):
