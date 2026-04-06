@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import { EyeIcon, PlusIcon } from './Icons'
 import type { Surface } from './SurfaceSwitcher'
 
 export interface MessageResult {
@@ -22,6 +23,13 @@ interface ResultStreamProps {
   onSelect: (msg: MessageResult) => void
   onLoadMore: () => void
   onAddToWorkspace?: (msg: MessageResult) => void
+}
+
+const SURFACE_LABELS: Record<string, string> = {
+  chat: '聊天',
+  public: '公众号',
+  moments: '朋友圈',
+  all: '全部',
 }
 
 function surfaceClass(surface: Surface): string {
@@ -98,12 +106,12 @@ function ResultStream({
     return (
       <section className="result-stream">
         <div className="result-stream__empty">
-          <h3>Start searching</h3>
-          <p>Enter keywords above to search your message archive.</p>
+          <h3>开始搜索</h3>
+          <p>在上方输入关键词搜索你的消息记录。</p>
           <div className="result-stream__suggestions">
-            <span className="suggestion-chip">Try a contact name</span>
-            <span className="suggestion-chip">Try a date range</span>
-            <span className="suggestion-chip">Try a keyword</span>
+            <span className="suggestion-chip">试试联系人名字</span>
+            <span className="suggestion-chip">试试日期范围</span>
+            <span className="suggestion-chip">试试关键词</span>
           </div>
         </div>
       </section>
@@ -116,7 +124,7 @@ function ResultStream({
       {totalEstimate > 0 && (
         <div className="result-stream__header">
           <span className="result-stream__count">
-            Found ~{totalEstimate.toLocaleString()} results
+            约 {totalEstimate.toLocaleString()} 条结果
           </span>
         </div>
       )}
@@ -145,7 +153,7 @@ function ResultStream({
             <div className="result-card__top">
               <span className="result-card__time">{formatTimestamp(msg.timestamp)}</span>
               <span className={`surface-tag ${surfaceClass(msg.surface)}`}>
-                {msg.surface}
+                {SURFACE_LABELS[msg.surface] || msg.surface}
               </span>
             </div>
             <div className="result-card__meta">
@@ -153,7 +161,7 @@ function ResultStream({
               <span className="result-card__sep">/</span>
               <span className="result-card__conversation">{msg.conversation_title}</span>
               {msg.attachment_path && (
-                <span className="result-card__attachment-icon" title="Has attachment">
+                <span className="result-card__attachment-icon" title="包含附件">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
@@ -163,20 +171,18 @@ function ResultStream({
             <p className="result-card__content">
               {highlightKeyword(msg.content, keyword)}
             </p>
-            <div className="result-card__actions">
-              <button type="button" className="result-card__action" onClick={(e) => { e.stopPropagation(); onSelect(msg) }}>
-                View context
+            {/* Always-visible primary action + hover secondary */}
+            <div className="result-card__actions result-card__actions--visible">
+              <button type="button" className="result-card__action result-card__action--primary" onClick={(e) => { e.stopPropagation(); onSelect(msg) }}>
+                <EyeIcon size={14} /> 查看上下文
               </button>
               <button
                 type="button"
                 className="result-card__action"
-                title="Add to workspace"
+                title="添加到工作区"
                 onClick={(e) => { e.stopPropagation(); onAddToWorkspace?.(msg) }}
               >
-                + Workspace
-              </button>
-              <button type="button" className="result-card__action" title="Export this message">
-                Export
+                <PlusIcon size={14} /> 收藏
               </button>
             </div>
           </article>
@@ -185,14 +191,14 @@ function ResultStream({
 
       {/* Loading indicator for "load more" */}
       {loading && results.length > 0 && (
-        <div className="result-stream__loading">Loading more...</div>
+        <div className="result-stream__loading">加载更多中...</div>
       )}
 
       {/* Load more */}
       {hasMore && !loading && (
         <div className="result-stream__footer">
           <button type="button" className="btn btn-secondary" onClick={onLoadMore}>
-            Load more results
+            加载更多结果
           </button>
         </div>
       )}

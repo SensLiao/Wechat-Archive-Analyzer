@@ -9,10 +9,10 @@ interface SurfaceSwitcherProps {
 }
 
 const SURFACES: readonly { key: Surface; label: string; className: string }[] = [
-  { key: 'all', label: 'All', className: 'surface-pill--all' },
-  { key: 'chat', label: 'Chat', className: 'surface-pill--chat' },
-  { key: 'public', label: 'Public', className: 'surface-pill--public' },
-  { key: 'moments', label: 'Moments', className: 'surface-pill--moments' },
+  { key: 'all', label: '全部', className: 'surface-pill--all' },
+  { key: 'chat', label: '聊天', className: 'surface-pill--chat' },
+  { key: 'public', label: '公众号', className: 'surface-pill--public' },
+  { key: 'moments', label: '朋友圈', className: 'surface-pill--moments' },
 ]
 
 function SurfaceSwitcher({ value, onChange, counts }: SurfaceSwitcherProps) {
@@ -22,7 +22,7 @@ function SurfaceSwitcher({ value, onChange, counts }: SurfaceSwitcherProps) {
   )
 
   return (
-    <div className="surface-switcher" role="tablist" aria-label="Surface filter">
+    <div className="surface-switcher" role="tablist" aria-label="数据来源筛选">
       {SURFACES.map((s) => (
         <button
           key={s.key}

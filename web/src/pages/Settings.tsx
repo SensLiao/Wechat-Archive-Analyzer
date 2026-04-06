@@ -32,6 +32,9 @@ function Settings() {
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
+  // Confirm dialog for destructive actions
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -132,38 +135,64 @@ function Settings() {
 
   return (
     <div className="page page-settings">
-      <h1 className="page-title">{'设置'}</h1>
+      <h1 className="page-title">设置</h1>
 
-      {loading && <p className="text-muted">{'加载中...'}</p>}
-      {error && <p className="text-error">{'加载设置失败'}: {error}</p>}
+      {loading && <p className="text-muted">加载中...</p>}
+      {error && <p className="text-error">加载设置失败: {error}</p>}
       {actionMessage && <p className="text-info">{actionMessage}</p>}
+
+      {/* Confirm dialog */}
+      {confirmAction && (
+        <div className="ws-dialog-overlay" onClick={() => setConfirmAction(null)}>
+          <div className="ws-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="section-title">{confirmAction.title}</h3>
+            <p className="text-muted">{confirmAction.message}</p>
+            <div className="btn-group" style={{ marginTop: 'var(--space-md)' }}>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => { confirmAction.onConfirm(); setConfirmAction(null) }}
+              >
+                确认
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setConfirmAction(null)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!loading && (
         <div className="settings-sections">
           {/* Account */}
           <section className="settings-card">
-            <h2 className="section-title">{'账号信息'}</h2>
+            <h2 className="section-title">账号信息</h2>
             {firstAccount ? (
               <dl className="settings-dl">
-                <dt>{'微信 ID'}</dt>
+                <dt>微信 ID</dt>
                 <dd>{firstAccount.wxid}</dd>
                 {firstAccount.version && (
                   <>
-                    <dt>{'微信版本'}</dt>
+                    <dt>微信版本</dt>
                     <dd>{firstAccount.version}</dd>
                   </>
                 )}
-                <dt>{'数据目录'}</dt>
+                <dt>数据目录</dt>
                 <dd className="mono">{firstAccount.path}</dd>
-                <dt>{'数据库目录'}</dt>
+                <dt>数据库目录</dt>
                 <dd className="mono">{firstAccount.db_dir}</dd>
               </dl>
             ) : (
-              <p className="text-muted">{'未发现账号'}</p>
+              <p className="text-muted">未发现账号</p>
             )}
             {accounts.length > 1 && (
               <details style={{ marginTop: 'var(--space-md)' }}>
-                <summary>{'其他账号'} ({accounts.length - 1})</summary>
+                <summary>其他账号 ({accounts.length - 1})</summary>
                 <ul>
                   {accounts.slice(1).map((acc) => (
                     <li key={acc.wxid}>
@@ -177,12 +206,12 @@ function Settings() {
 
           {/* Key */}
           <section className="settings-card">
-            <h2 className="section-title">{'密钥状态'}</h2>
+            <h2 className="section-title">密钥状态</h2>
             {firstKey ? (
               <dl className="settings-dl">
-                <dt>{'账号'}</dt>
+                <dt>账号</dt>
                 <dd>{firstKey.wxid}</dd>
-                <dt>{'保护方式'}</dt>
+                <dt>保护方式</dt>
                 <dd>
                   <span className={`status-badge status-${firstKey.protection}`}>
                     {firstKey.protection}
@@ -190,25 +219,25 @@ function Settings() {
                 </dd>
                 {firstKey.plugin && (
                   <>
-                    <dt>{'插件'}</dt>
+                    <dt>数据源</dt>
                     <dd>{firstKey.plugin}</dd>
                   </>
                 )}
                 {firstKey.created_at && (
                   <>
-                    <dt>{'创建时间'}</dt>
+                    <dt>创建时间</dt>
                     <dd>{firstKey.created_at}</dd>
                   </>
                 )}
                 {firstKey.last_verified && (
                   <>
-                    <dt>{'上次验证'}</dt>
+                    <dt>上次验证</dt>
                     <dd>{firstKey.last_verified}</dd>
                   </>
                 )}
               </dl>
             ) : (
-              <p className="text-muted">{'未发现密钥'}</p>
+              <p className="text-muted">未发现密钥</p>
             )}
             <button
               className="btn btn-secondary"
@@ -222,20 +251,20 @@ function Settings() {
 
           {/* Cache */}
           <section className="settings-card">
-            <h2 className="section-title">{'缓存'}</h2>
+            <h2 className="section-title">缓存</h2>
             {cacheStatus ? (
               <dl className="settings-dl">
-                <dt>{'缓存目录'}</dt>
+                <dt>缓存目录</dt>
                 <dd className="mono">{cacheStatus.cache_dir}</dd>
                 {cacheStatus.total_size_human && (
                   <>
-                    <dt>{'总大小'}</dt>
+                    <dt>总大小</dt>
                     <dd>{cacheStatus.total_size_human}</dd>
                   </>
                 )}
               </dl>
             ) : (
-              <p className="text-muted">{'无缓存信息'}</p>
+              <p className="text-muted">无缓存信息</p>
             )}
             <div className="btn-group">
               <button
@@ -250,7 +279,11 @@ function Settings() {
                 className="btn btn-danger"
                 type="button"
                 disabled={actionLoading === 'clear-cache'}
-                onClick={handleClearCache}
+                onClick={() => setConfirmAction({
+                  title: '清空缓存',
+                  message: '确定要清空所有解密缓存吗？下次查询时需要重新解密数据库，可能需要较长时间。',
+                  onConfirm: handleClearCache,
+                })}
               >
                 {actionLoading === 'clear-cache' ? '清空中...' : '清空缓存'}
               </button>

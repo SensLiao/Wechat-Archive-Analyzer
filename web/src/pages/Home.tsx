@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
+import { SearchIcon, ExportIcon, FolderPlusIcon, KeyIcon, FolderIcon } from '@/components/Icons'
 import RecentExports from '@/components/RecentExports'
 import type { ExportRecord } from '@/components/RecentExports'
 
@@ -84,20 +85,20 @@ function Home() {
         <h2 className="section-title">快捷操作</h2>
         <div className="action-grid">
           <a href="/search" className="action-card">
-            <span className="action-icon">{'\�\�'}</span>
-            <span>{'全文搜索'}</span>
+            <span className="action-icon"><SearchIcon size={28} /></span>
+            <span>全文搜索</span>
           </a>
           <a href="/exports" className="action-card">
-            <span className="action-icon">{'\�\�'}</span>
-            <span>{'导出聊天'}</span>
+            <span className="action-icon"><ExportIcon size={28} /></span>
+            <span>导出聊天</span>
           </a>
           <a href="/workspace" className="action-card action-card-accent">
-            <span className="action-icon">{'\�\�'}</span>
-            <span>{'新建工作区'}</span>
+            <span className="action-icon"><FolderPlusIcon size={28} /></span>
+            <span>新建工作区</span>
           </a>
           <a href="/settings" className="action-card">
-            <span className="action-icon">{'\�\�'}</span>
-            <span>{'密钥管理'}</span>
+            <span className="action-icon"><KeyIcon size={28} /></span>
+            <span>密钥管理</span>
           </a>
         </div>
       </section>
@@ -129,7 +130,7 @@ function Home() {
           <div className="home-ws-grid">
             {summary.recent_workspaces.map((w) => (
               <a key={w.id} href={`/workspace?id=${w.id}`} className="home-ws-card">
-                <span className="home-ws-card-icon">{'\�\�'}</span>
+                <span className="home-ws-card-icon"><FolderIcon size={20} /></span>
                 <span className="home-ws-card-name">{w.name}</span>
                 <span className="home-ws-card-meta">{w.item_count} 项 &middot; {w.updated}</span>
               </a>

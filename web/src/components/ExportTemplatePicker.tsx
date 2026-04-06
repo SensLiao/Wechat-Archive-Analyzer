@@ -1,3 +1,5 @@
+import { BookIcon, CalendarIcon, PaperclipIcon, ShieldIcon, DatabaseIcon } from './Icons'
+
 export interface ExportTemplate {
   id: string
   name: string
@@ -9,34 +11,42 @@ const BUILTIN_TEMPLATES: ExportTemplate[] = [
   {
     id: 'reading-review',
     name: '阅读版聊天回顾',
-    description: '生成易读的聊天记录\，按时间线排列\，包含发送者\、时间戳和内容\，适合快速回顾历史对话',
-    icon: '\u{1F4D6}',
+    description: '生成易读的聊天记录，按时间线排列，包含发送者、时间戳和内容，适合快速回顾历史对话',
+    icon: 'book',
   },
   {
     id: 'project-timeline',
     name: '项目时间线',
-    description: '提取与项目相关的关键消息\，生成时间线视图\，包含里程碑和决策点',
-    icon: '\u{1F4C5}',
+    description: '提取与项目相关的关键消息，生成时间线视图，包含里程碑和决策点',
+    icon: 'calendar',
   },
   {
     id: 'attachment-list',
     name: '附件清单',
-    description: '汇总所有文件\、图片\、视频附件\，生成清单并复制到导出目录',
-    icon: '\u{1F4CE}',
+    description: '汇总所有文件、图片、视频附件，生成清单并复制到导出目录',
+    icon: 'paperclip',
   },
   {
     id: 'evidence-package',
     name: '证据包',
-    description: '生成包含完整元数据的导出包\，适合存档\、举证或合规用途\，包含哈希校验',
-    icon: '\u{1F4DC}',
+    description: '生成包含完整元数据的导出包，适合存档、举证或合规用途，包含哈希校验',
+    icon: 'shield',
   },
   {
     id: 'raw-structured',
     name: '原始结构化导出',
-    description: '导出原始 JSON/CSV 数据\，保留所有字段和元数据\，适合程序化处理或二次开发',
-    icon: '\u{1F4BE}',
+    description: '导出原始 JSON/CSV 数据，保留所有字段和元数据，适合程序化处理或二次开发',
+    icon: 'database',
   },
 ]
+
+const ICON_MAP: Record<string, React.ReactNode> = {
+  book: <BookIcon size={28} />,
+  calendar: <CalendarIcon size={28} />,
+  paperclip: <PaperclipIcon size={28} />,
+  shield: <ShieldIcon size={28} />,
+  database: <DatabaseIcon size={28} />,
+}
 
 interface ExportTemplatePickerProps {
   selectedTemplate: string | null
@@ -61,11 +71,11 @@ function ExportTemplatePicker({
             className={`template-card ${selectedTemplate === tpl.id ? 'template-card-selected' : ''}`}
             onClick={() => onSelect(tpl.id)}
           >
-            <span className="template-icon">{tpl.icon}</span>
+            <span className="template-icon">{ICON_MAP[tpl.icon] || tpl.icon}</span>
             <span className="template-name">{tpl.name}</span>
             <span className="template-desc">{tpl.description}</span>
             {selectedTemplate === tpl.id && (
-              <span className="template-check">✓</span>
+              <span className="template-check">{'\u2713'}</span>
             )}
           </button>
         ))}

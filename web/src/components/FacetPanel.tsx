@@ -1,4 +1,5 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
+import { FilterIcon, XIcon } from './Icons'
 import type { Surface } from './SurfaceSwitcher'
 
 export interface Facets {
@@ -29,14 +30,28 @@ interface FacetPanelProps {
 }
 
 const MSG_TYPES = [
-  { value: 'text', label: 'Text' },
-  { value: 'image', label: 'Image' },
-  { value: 'video', label: 'Video' },
-  { value: 'file', label: 'File' },
-  { value: 'link', label: 'Link' },
+  { value: 'text', label: '文字' },
+  { value: 'image', label: '图片' },
+  { value: 'video', label: '视频' },
+  { value: 'file', label: '文件' },
+  { value: 'link', label: '链接' },
 ] as const
 
+/** Count how many filters are active */
+function activeFilterCount(facets: Facets): number {
+  let count = 0
+  if (facets.since) count++
+  if (facets.until) count++
+  if (facets.contact) count++
+  if (facets.conversation) count++
+  if (facets.msgTypes.size > 0) count++
+  if (facets.hasAttachment) count++
+  return count
+}
+
 function FacetPanel({ facets, onChange, onApply, onClear }: FacetPanelProps) {
+  const [mobileOpen, setMobileOpen] = useState(false)
+
   const update = useCallback(
     <K extends keyof Facets>(key: K, value: Facets[K]) => {
       onChange({ ...facets, [key]: value })
@@ -57,15 +72,15 @@ function FacetPanel({ facets, onChange, onApply, onClear }: FacetPanelProps) {
     [facets, onChange],
   )
 
-  return (
-    <aside className="facet-panel">
-      <h3 className="col-title">Filters</h3>
+  const filterCount = activeFilterCount(facets)
 
+  const panelContent = (
+    <>
       {/* Time range */}
       <fieldset className="facet-group">
-        <legend className="facet-group__legend">Time range</legend>
+        <legend className="facet-group__legend">时间范围</legend>
         <label className="facet-label">
-          Since
+          开始
           <input
             type="date"
             className="facet-input"
@@ -74,7 +89,7 @@ function FacetPanel({ facets, onChange, onApply, onClear }: FacetPanelProps) {
           />
         </label>
         <label className="facet-label">
-          Until
+          结束
           <input
             type="date"
             className="facet-input"
@@ -86,11 +101,11 @@ function FacetPanel({ facets, onChange, onApply, onClear }: FacetPanelProps) {
 
       {/* Contact */}
       <fieldset className="facet-group">
-        <legend className="facet-group__legend">Contact</legend>
+        <legend className="facet-group__legend">联系人</legend>
         <input
           type="text"
           className="facet-input"
-          placeholder="Filter by contact..."
+          placeholder="按联系人筛选..."
           value={facets.contact}
           onChange={(e) => update('contact', e.target.value)}
         />
@@ -98,11 +113,11 @@ function FacetPanel({ facets, onChange, onApply, onClear }: FacetPanelProps) {
 
       {/* Conversation */}
       <fieldset className="facet-group">
-        <legend className="facet-group__legend">Conversation</legend>
+        <legend className="facet-group__legend">会话</legend>
         <input
           type="text"
           className="facet-input"
-          placeholder="Filter by conversation..."
+          placeholder="按会话筛选..."
           value={facets.conversation}
           onChange={(e) => update('conversation', e.target.value)}
         />
@@ -110,7 +125,7 @@ function FacetPanel({ facets, onChange, onApply, onClear }: FacetPanelProps) {
 
       {/* Message type checkboxes */}
       <fieldset className="facet-group">
-        <legend className="facet-group__legend">Message type</legend>
+        <legend className="facet-group__legend">消息类型</legend>
         <div className="facet-checkboxes">
           {MSG_TYPES.map((mt) => (
             <label key={mt.value} className="facet-checkbox">
@@ -127,33 +142,67 @@ function FacetPanel({ facets, onChange, onApply, onClear }: FacetPanelProps) {
 
       {/* Has attachment toggle */}
       <fieldset className="facet-group">
-        <legend className="facet-group__legend">Attachments</legend>
+        <legend className="facet-group__legend">附件</legend>
         <label className="facet-toggle">
           <input
             type="checkbox"
             checked={facets.hasAttachment}
             onChange={(e) => update('hasAttachment', e.target.checked)}
           />
-          <span>Has attachment</span>
+          <span>包含附件</span>
         </label>
-      </fieldset>
-
-      {/* Saved views placeholder */}
-      <fieldset className="facet-group">
-        <legend className="facet-group__legend">Saved views</legend>
-        <p className="text-muted">No saved views yet</p>
       </fieldset>
 
       {/* Actions */}
       <div className="facet-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClear}>
-          Clear all
+        <button type="button" className="btn btn-secondary" onClick={() => { onClear(); setMobileOpen(false) }}>
+          清除全部
         </button>
-        <button type="button" className="btn btn-primary" onClick={onApply}>
-          Apply
+        <button type="button" className="btn btn-primary" onClick={() => { onApply(); setMobileOpen(false) }}>
+          应用筛选
         </button>
       </div>
-    </aside>
+    </>
+  )
+
+  return (
+    <>
+      {/* Mobile filter toggle button */}
+      <button
+        type="button"
+        className="facet-mobile-toggle"
+        onClick={() => setMobileOpen(true)}
+      >
+        <FilterIcon size={16} />
+        <span>筛选</span>
+        {filterCount > 0 && <span className="facet-mobile-badge">{filterCount}</span>}
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="facet-mobile-overlay" onClick={() => setMobileOpen(false)}>
+          <div className="facet-mobile-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="facet-mobile-sheet-header">
+              <h3 className="col-title">筛选条件</h3>
+              <button
+                type="button"
+                className="facet-mobile-close"
+                onClick={() => setMobileOpen(false)}
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
+            {panelContent}
+          </div>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="facet-panel">
+        <h3 className="col-title">筛选条件</h3>
+        {panelContent}
+      </aside>
+    </>
   )
 }
 

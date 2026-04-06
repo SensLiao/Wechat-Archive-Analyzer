@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { apiFetch } from '@/lib/api'
 import WorkspaceBoard from '@/components/WorkspaceBoard'
 import type { WorkspaceItemData } from '@/components/WorkspaceItemCard'
@@ -17,6 +18,9 @@ interface WorkspaceDetail extends WorkspaceMeta {
 }
 
 function Workspace() {
+  const [searchParams] = useSearchParams()
+  const urlId = searchParams.get('id')
+
   const [workspaces, setWorkspaces] = useState<WorkspaceMeta[]>([])
   const [activeWs, setActiveWs] = useState<string | null>(null)
   const [detail, setDetail] = useState<WorkspaceDetail | null>(null)
@@ -48,7 +52,10 @@ function Workspace() {
       .then((data) => {
         const list = Array.isArray(data) ? data : []
         setWorkspaces(list)
-        if (list.length > 0 && !activeWs) {
+        // Auto-select from URL param or first workspace
+        if (urlId && list.some((w) => w.id === urlId)) {
+          setActiveWs(urlId)
+        } else if (list.length > 0 && !activeWs) {
           setActiveWs(list[0].id)
         }
       })
@@ -216,7 +223,6 @@ function Workspace() {
 
   const handleExportWorkspace = () => {
     // Navigate to exports page with workspace pre-selected
-    window.location.hash = ''
     window.location.href = '/exports?source=workspace&source_id=' + activeWs
   }
 
@@ -290,7 +296,7 @@ function Workspace() {
           <div className="ws-dialog" onClick={(e) => e.stopPropagation()}>
             <h3 className="section-title">删除工作区</h3>
             <p className="text-muted">
-              确定要删除“{activeWorkspace?.name}”吗\？此操作不可撤销\。
+              确定要删除"{activeWorkspace?.name}"吗？此操作不可撤销。
             </p>
             <div className="btn-group" style={{ marginTop: 'var(--space-md)' }}>
               <button
@@ -389,7 +395,7 @@ function Workspace() {
                       setTagDraft(selectedItem.tags?.join(', ') || '')
                     }}
                   >
-                    ✏
+                    编辑
                   </button>
                 </div>
                 {editingTags ? (
@@ -433,7 +439,7 @@ function Workspace() {
                       setNoteDraft(selectedItem.notes || '')
                     }}
                   >
-                    ✏
+                    编辑
                   </button>
                 </div>
                 {editingNote ? (

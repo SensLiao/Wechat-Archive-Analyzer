@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
+import { SearchIcon, FolderIcon, UserIcon, SettingsIcon } from '@/components/Icons'
 import ExportTemplatePicker from '@/components/ExportTemplatePicker'
 import type { ExportTemplate } from '@/components/ExportTemplatePicker'
 import RecentExports from '@/components/RecentExports'
@@ -141,7 +142,7 @@ function Exports() {
 
   return (
     <div className="page page-exports">
-      <h1 className="page-title">{'导出'}</h1>
+      <h1 className="page-title">导出</h1>
 
       {error && <p className="text-error">{error}</p>}
 
@@ -155,7 +156,7 @@ function Exports() {
               className={`wizard-step-indicator ${step === s ? 'wizard-step-active' : ''} ${step > s ? 'wizard-step-done' : ''}`}
               onClick={() => { if (s < step) setStep(s) }}
             >
-              <span className="wizard-step-num">{step > s ? '✓' : s}</span>
+              <span className="wizard-step-num">{step > s ? '\u2713' : s}</span>
               <span className="wizard-step-label">
                 {s === 1 && '数据来源'}
                 {s === 2 && '选择模板'}
@@ -169,43 +170,43 @@ function Exports() {
         {/* Step 1: Source selection */}
         {step === 1 && (
           <div className="export-step-content">
-            <h3 className="section-title">{'选择数据来源'}</h3>
+            <h3 className="section-title">选择数据来源</h3>
             <div className="export-source-grid">
               <button
                 type="button"
                 className={`export-source-card ${source === 'search' ? 'export-source-selected' : ''}`}
                 onClick={() => setSource('search')}
               >
-                <span className="export-source-icon">{'\�\�'}</span>
-                <span className="export-source-name">{'当前搜索'}</span>
-                <span className="export-source-desc">{'导出搜索结果'}</span>
+                <span className="export-source-icon"><SearchIcon size={28} /></span>
+                <span className="export-source-name">当前搜索</span>
+                <span className="export-source-desc">导出搜索结果</span>
               </button>
               <button
                 type="button"
                 className={`export-source-card ${source === 'workspace' ? 'export-source-selected' : ''}`}
                 onClick={() => setSource('workspace')}
               >
-                <span className="export-source-icon">{'\�\�'}</span>
-                <span className="export-source-name">{'工作区'}</span>
-                <span className="export-source-desc">{'导出工作区内容'}</span>
+                <span className="export-source-icon"><FolderIcon size={28} /></span>
+                <span className="export-source-name">工作区</span>
+                <span className="export-source-desc">导出工作区内容</span>
               </button>
               <button
                 type="button"
                 className={`export-source-card ${source === 'contact' ? 'export-source-selected' : ''}`}
                 onClick={() => setSource('contact')}
               >
-                <span className="export-source-icon">{'\�\�'}</span>
-                <span className="export-source-name">{'联系人'}</span>
-                <span className="export-source-desc">{'导出指定联系人的聊天'}</span>
+                <span className="export-source-icon"><UserIcon size={28} /></span>
+                <span className="export-source-name">联系人</span>
+                <span className="export-source-desc">导出指定联系人的聊天</span>
               </button>
               <button
                 type="button"
                 className={`export-source-card ${source === 'custom' ? 'export-source-selected' : ''}`}
                 onClick={() => setSource('custom')}
               >
-                <span className="export-source-icon">{'⚙'}</span>
-                <span className="export-source-name">{'自定义'}</span>
-                <span className="export-source-desc">{'自定义筛选条件'}</span>
+                <span className="export-source-icon"><SettingsIcon size={28} /></span>
+                <span className="export-source-name">自定义</span>
+                <span className="export-source-desc">自定义筛选条件</span>
               </button>
             </div>
 
@@ -225,32 +226,32 @@ function Exports() {
               )}
               {(source === 'contact' || source === 'custom') && (
                 <label className="facet-label">
-                  {'联系人'}
+                  联系人
                   <input
                     type="text"
                     className="facet-input"
                     value={contact}
                     onChange={(e) => setContact(e.target.value)}
-                    placeholder={'输入联系人名称或 wxid...'}
+                    placeholder="输入联系人名称或 wxid..."
                   />
                 </label>
               )}
               {source === 'custom' && (
                 <label className="facet-label">
-                  {'会话'}
+                  会话
                   <input
                     type="text"
                     className="facet-input"
                     value={conversation}
                     onChange={(e) => setConversation(e.target.value)}
-                    placeholder={'输入会话名称...'}
+                    placeholder="输入会话名称..."
                   />
                 </label>
               )}
               {(source === 'contact' || source === 'custom') && (
                 <div className="export-date-range">
                   <label className="facet-label">
-                    {'开始日期'}
+                    开始日期
                     <input
                       type="date"
                       className="facet-input"
@@ -259,7 +260,7 @@ function Exports() {
                     />
                   </label>
                   <label className="facet-label">
-                    {'结束日期'}
+                    结束日期
                     <input
                       type="date"
                       className="facet-input"
@@ -277,7 +278,7 @@ function Exports() {
               onClick={() => setStep(2)}
               disabled={!canProceedStep1}
             >
-              {'下一步: 选择模板'}
+              下一步: 选择模板
             </button>
           </div>
         )}
@@ -285,7 +286,7 @@ function Exports() {
         {/* Step 2: Template selection */}
         {step === 2 && (
           <div className="export-step-content">
-            <h3 className="section-title">{'选择导出模板'}</h3>
+            <h3 className="section-title">选择导出模板</h3>
             <ExportTemplatePicker
               selectedTemplate={selectedTemplate}
               onSelect={setSelectedTemplate}
@@ -298,14 +299,14 @@ function Exports() {
                 onClick={() => setStep(3)}
                 disabled={!canProceedStep2}
               >
-                {'下一步: 格式选项'}
+                下一步: 格式选项
               </button>
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setStep(1)}
               >
-                {'上一步'}
+                上一步
               </button>
             </div>
           </div>
@@ -314,10 +315,10 @@ function Exports() {
         {/* Step 3: Format and options */}
         {step === 3 && (
           <div className="export-step-content">
-            <h3 className="section-title">{'格式与选项'}</h3>
+            <h3 className="section-title">格式与选项</h3>
 
             <div className="export-format-group">
-              <h4 className="col-title">{'输出格式'}</h4>
+              <h4 className="col-title">输出格式</h4>
               <div className="radio-group">
                 <label className="radio-label">
                   <input
@@ -359,18 +360,18 @@ function Exports() {
                   checked={attachments}
                   onChange={(e) => setAttachments(e.target.checked)}
                 />
-                {'包含附件 (图片\、文件\、视频)'}
+                包含附件 (图片、文件、视频)
               </label>
             </div>
 
             <label className="facet-label">
-              {'输出目录 (可选)'}
+              输出目录 (可选)
               <input
                 type="text"
                 className="facet-input"
                 value={outputDir}
                 onChange={(e) => setOutputDir(e.target.value)}
-                placeholder={'留空使用默认目录...'}
+                placeholder="留空使用默认目录..."
               />
             </label>
 
@@ -380,14 +381,14 @@ function Exports() {
                 className="btn btn-primary"
                 onClick={() => setStep(4)}
               >
-                {'下一步: 执行导出'}
+                下一步: 执行导出
               </button>
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setStep(2)}
               >
-                {'上一步'}
+                上一步
               </button>
             </div>
           </div>
@@ -396,21 +397,21 @@ function Exports() {
         {/* Step 4: Execute */}
         {step === 4 && (
           <div className="export-step-content">
-            <h3 className="section-title">{'确认并导出'}</h3>
+            <h3 className="section-title">确认并导出</h3>
 
             <div className="export-summary">
               <dl className="settings-dl">
-                <dt>{'来源'}</dt>
+                <dt>来源</dt>
                 <dd>{source}{sourceId ? ` (${sourceId})` : ''}{contact ? ` - ${contact}` : ''}</dd>
-                <dt>{'模板'}</dt>
+                <dt>模板</dt>
                 <dd>{selectedTemplate || '未选择'}</dd>
-                <dt>{'格式'}</dt>
+                <dt>格式</dt>
                 <dd>{format.toUpperCase()}</dd>
-                <dt>{'附件'}</dt>
+                <dt>附件</dt>
                 <dd>{attachments ? '包含' : '不包含'}</dd>
                 {outputDir && (
                   <>
-                    <dt>{'输出目录'}</dt>
+                    <dt>输出目录</dt>
                     <dd className="mono">{outputDir}</dd>
                   </>
                 )}
@@ -436,7 +437,7 @@ function Exports() {
                 onClick={() => setStep(3)}
                 disabled={exporting}
               >
-                {'上一步'}
+                上一步
               </button>
             </div>
           </div>
@@ -446,7 +447,7 @@ function Exports() {
       {/* Recent Exports (session-only, no backend history) */}
       {recentExports.length > 0 && (
         <section className="recent-section">
-          <h2 className="section-title">{'本次会话导出记录'}</h2>
+          <h2 className="section-title">本次会话导出记录</h2>
           <RecentExports
             exports={recentExports}
             loading={false}

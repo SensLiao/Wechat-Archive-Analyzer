@@ -128,7 +128,7 @@ function Search() {
         setHasMore(data.has_more ?? false)
         offsetRef.current = offset + msgs.length
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Search failed')
+        setError(err instanceof Error ? err.message : '搜索失败')
       } finally {
         setLoading(false)
       }
@@ -191,11 +191,6 @@ function Search() {
     setDrawerOpen(false)
   }, [])
 
-  const handleSaveView = useCallback(() => {
-    // Placeholder: save current query as a named view
-    // TODO: persist to local storage or backend
-  }, [])
-
   const handleAddToWorkspace = useCallback((msg: MessageResult) => {
     setWsPickerMsg(msg)
     apiFetch<{ id: string; name: string }[]>('/workspaces')
@@ -222,7 +217,7 @@ function Search() {
       })
       setWsPickerMsg(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add to workspace')
+      setError(err instanceof Error ? err.message : '添加到工作区失败')
     } finally {
       setWsAdding(false)
     }
@@ -236,7 +231,6 @@ function Search() {
         surface={surface}
         onKeywordChange={handleKeywordChange}
         onSurfaceChange={handleSurfaceChange}
-        onSaveView={handleSaveView}
       />
 
       {error && <p className="text-error">{error}</p>}
@@ -274,13 +268,13 @@ function Search() {
       {wsPickerMsg && (
         <div className="ws-dialog-overlay" onClick={() => setWsPickerMsg(null)}>
           <div className="ws-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3 className="section-title">Add to workspace</h3>
+            <h3 className="section-title">添加到工作区</h3>
             <p className="text-muted" style={{ marginBottom: 'var(--space-sm, 8px)' }}>
               {wsPickerMsg.sender_name}: {wsPickerMsg.content.slice(0, 80)}
               {wsPickerMsg.content.length > 80 ? '...' : ''}
             </p>
             {wsList.length === 0 ? (
-              <p className="text-muted">No workspaces found. Create one first.</p>
+              <p className="text-muted">暂无工作区，请先创建一个。</p>
             ) : (
               <ul className="ws-list" style={{ maxHeight: '240px', overflow: 'auto' }}>
                 {wsList.map((ws) => (
@@ -301,7 +295,7 @@ function Search() {
                 className="btn btn-secondary"
                 onClick={() => setWsPickerMsg(null)}
               >
-                Cancel
+                取消
               </button>
             </div>
           </div>

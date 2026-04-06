@@ -6,7 +6,6 @@ interface SearchBarProps {
   surface: Surface
   onKeywordChange: (keyword: string) => void
   onSurfaceChange: (surface: Surface) => void
-  onSaveView: () => void
 }
 
 function SearchBar({
@@ -14,7 +13,6 @@ function SearchBar({
   surface,
   onKeywordChange,
   onSurfaceChange,
-  onSaveView,
 }: SearchBarProps) {
   const [localValue, setLocalValue] = useState(keyword)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -75,22 +73,14 @@ function SearchBar({
           ref={inputRef}
           type="text"
           className="search-bar-v2__input"
-          placeholder="Search messages..."
+          placeholder="搜索消息..."
           value={localValue}
           onChange={handleChange}
-          aria-label="Search messages"
+          aria-label="搜索消息"
         />
         <kbd className="search-bar-v2__kbd">Ctrl+K</kbd>
       </div>
       <SurfaceSwitcher value={surface} onChange={onSurfaceChange} />
-      <button
-        type="button"
-        className="btn btn-secondary search-bar-v2__save"
-        onClick={onSaveView}
-        title="Save current search as a view"
-      >
-        Save view
-      </button>
     </div>
   )
 }

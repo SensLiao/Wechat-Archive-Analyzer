@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MessageIcon, FileTextIcon, EyeIcon, BookIcon } from './Icons'
 
 export interface WorkspaceItemData {
   id: string
@@ -20,11 +21,11 @@ interface WorkspaceItemCardProps {
   onEditNotes: (itemId: string, notes: string) => void
 }
 
-const TYPE_ICONS: Record<WorkspaceItemData['type'], string> = {
-  message: '✉',   // envelope
-  article: '\u{1F4C4}', // page facing up
-  moment: '\u{1F4F7}',  // camera
-  note: '\u{1F4DD}',    // memo
+const TYPE_ICONS: Record<WorkspaceItemData['type'], React.ReactNode> = {
+  message: <MessageIcon size={16} />,
+  article: <FileTextIcon size={16} />,
+  moment: <EyeIcon size={16} />,
+  note: <BookIcon size={16} />,
 }
 
 const TYPE_LABELS: Record<WorkspaceItemData['type'], string> = {
@@ -86,7 +87,7 @@ function WorkspaceItemCard({
                 setEditingNotes(true)
               }}
             >
-              ✏
+              编辑
             </button>
             <button
               type="button"
@@ -97,7 +98,7 @@ function WorkspaceItemCard({
                 onRemove(item.id)
               }}
             >
-              ✕
+              移除
             </button>
           </span>
         )}

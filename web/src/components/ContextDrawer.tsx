@@ -43,7 +43,6 @@ function ContextDrawer({ message, open, onClose, onAddToWorkspace }: ContextDraw
   const [context, setContext] = useState<ContextResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [notes, setNotes] = useState('')
 
   // Fetch context when message changes
   useEffect(() => {
@@ -64,7 +63,7 @@ function ContextDrawer({ message, open, onClose, onAddToWorkspace }: ContextDraw
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load context')
+          setError(err instanceof Error ? err.message : '加载上下文失败')
         }
       })
       .finally(() => {
@@ -92,8 +91,8 @@ function ContextDrawer({ message, open, onClose, onAddToWorkspace }: ContextDraw
   return (
     <aside className={`context-drawer ${open ? 'context-drawer--open' : ''}`}>
       <div className="context-drawer__header">
-        <h3 className="col-title">Context</h3>
-        <button type="button" className="context-drawer__close" onClick={onClose} aria-label="Close context">
+        <h3 className="col-title">上下文</h3>
+        <button type="button" className="context-drawer__close" onClick={onClose} aria-label="关闭">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -103,7 +102,7 @@ function ContextDrawer({ message, open, onClose, onAddToWorkspace }: ContextDraw
 
       {!message && (
         <p className="text-muted context-drawer__placeholder">
-          Click a result to view its context
+          点击搜索结果查看上下文
         </p>
       )}
 
@@ -172,28 +171,14 @@ function ContextDrawer({ message, open, onClose, onAddToWorkspace }: ContextDraw
             <button
               type="button"
               className="btn btn-secondary"
-              title="Add to workspace"
+              title="添加到工作区"
               onClick={() => message && onAddToWorkspace?.(message)}
             >
-              + Workspace
+              + 添加到工作区
             </button>
             <button type="button" className="btn btn-secondary" onClick={handleExportContext}>
-              Export context
+              导出上下文
             </button>
-          </div>
-
-          {/* Notes / Tags */}
-          <div className="context-drawer__notes">
-            <label className="facet-label">
-              Notes / Tags
-              <textarea
-                className="context-drawer__notes-input"
-                placeholder="Add notes or tags..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-              />
-            </label>
           </div>
         </>
       )}
