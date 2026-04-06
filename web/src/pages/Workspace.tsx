@@ -121,7 +121,7 @@ function Workspace() {
       setCreateName('')
       setCreateDesc('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : '\u521B\u5EFA\u5931\u8D25')
+      setError(err instanceof Error ? err.message : '创建失败')
     } finally {
       setCreating(false)
     }
@@ -140,7 +140,7 @@ function Workspace() {
       setSelectedItem(null)
       setShowDelete(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '\u5220\u9664\u5931\u8D25')
+      setError(err instanceof Error ? err.message : '删除失败')
     } finally {
       setDeleting(false)
     }
@@ -157,7 +157,7 @@ function Workspace() {
       if (selectedItem?.id === itemId) setSelectedItem(null)
       refreshList()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '\u79FB\u9664\u5931\u8D25')
+      setError(err instanceof Error ? err.message : '移除失败')
     }
   }
 
@@ -177,7 +177,7 @@ function Workspace() {
         body: JSON.stringify({ notes }),
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : '\u4FDD\u5B58\u5907\u6CE8\u5931\u8D25')
+      setError(err instanceof Error ? err.message : '保存备注失败')
     }
   }
 
@@ -210,7 +210,7 @@ function Workspace() {
         body: JSON.stringify({ tags: newTags }),
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : '\u4FDD\u5B58\u6807\u7B7E\u5931\u8D25')
+      setError(err instanceof Error ? err.message : '保存标签失败')
     }
   }
 
@@ -225,13 +225,13 @@ function Workspace() {
   return (
     <div className="page page-workspace">
       <div className="ws-page-header">
-        <h1 className="page-title">\u5DE5\u4F5C\u533A</h1>
+        <h1 className="page-title">工作区</h1>
         <button
           type="button"
           className="btn btn-primary"
           onClick={() => setShowCreate(true)}
         >
-          + \u65B0\u5EFA\u5DE5\u4F5C\u533A
+          + 新建工作区
         </button>
       </div>
 
@@ -241,25 +241,25 @@ function Workspace() {
       {showCreate && (
         <div className="ws-dialog-overlay" onClick={() => setShowCreate(false)}>
           <div className="ws-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3 className="section-title">\u65B0\u5EFA\u5DE5\u4F5C\u533A</h3>
+            <h3 className="section-title">新建工作区</h3>
             <label className="facet-label">
-              \u540D\u79F0
+              名称
               <input
                 type="text"
                 className="facet-input"
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
-                placeholder="\u8F93\u5165\u5DE5\u4F5C\u533A\u540D\u79F0..."
+                placeholder="输入工作区名称..."
                 autoFocus
               />
             </label>
             <label className="facet-label">
-              \u63CF\u8FF0 (\u53EF\u9009)
+              描述 (可选)
               <textarea
                 className="facet-input ws-dialog-textarea"
                 value={createDesc}
                 onChange={(e) => setCreateDesc(e.target.value)}
-                placeholder="\u63CF\u8FF0\u8FD9\u4E2A\u5DE5\u4F5C\u533A\u7684\u7528\u9014..."
+                placeholder="描述这个工作区的用途..."
                 rows={3}
               />
             </label>
@@ -270,14 +270,14 @@ function Workspace() {
                 onClick={handleCreate}
                 disabled={creating || !createName.trim()}
               >
-                {creating ? '\u521B\u5EFA\u4E2D...' : '\u521B\u5EFA'}
+                {creating ? '创建中...' : '创建'}
               </button>
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setShowCreate(false)}
               >
-                \u53D6\u6D88
+                取消
               </button>
             </div>
           </div>
@@ -288,9 +288,9 @@ function Workspace() {
       {showDelete && (
         <div className="ws-dialog-overlay" onClick={() => setShowDelete(false)}>
           <div className="ws-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3 className="section-title">\u5220\u9664\u5DE5\u4F5C\u533A</h3>
+            <h3 className="section-title">删除工作区</h3>
             <p className="text-muted">
-              \u786E\u5B9A\u8981\u5220\u9664\u201C{activeWorkspace?.name}\u201D\u5417\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002
+              确定要删除“{activeWorkspace?.name}”吗\？此操作不可撤销\。
             </p>
             <div className="btn-group" style={{ marginTop: 'var(--space-md)' }}>
               <button
@@ -299,14 +299,14 @@ function Workspace() {
                 onClick={handleDelete}
                 disabled={deleting}
               >
-                {deleting ? '\u5220\u9664\u4E2D...' : '\u786E\u8BA4\u5220\u9664'}
+                {deleting ? '删除中...' : '确认删除'}
               </button>
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setShowDelete(false)}
               >
-                \u53D6\u6D88
+                取消
               </button>
             </div>
           </div>
@@ -316,8 +316,8 @@ function Workspace() {
       <div className="three-col">
         {/* Left: Workspace list */}
         <aside className="col-facets">
-          <h3 className="col-title">\u5DE5\u4F5C\u533A\u5217\u8868</h3>
-          {loading && <p className="text-muted">\u52A0\u8F7D\u4E2D...</p>}
+          <h3 className="col-title">工作区列表</h3>
+          {loading && <p className="text-muted">加载中...</p>}
           <ul className="ws-list">
             {workspaces.map((ws) => (
               <li
@@ -326,12 +326,12 @@ function Workspace() {
                 onClick={() => setActiveWs(ws.id)}
               >
                 <span className="ws-name">{ws.name}</span>
-                <span className="ws-meta">{ws.item_count} \u9879</span>
+                <span className="ws-meta">{ws.item_count} 项</span>
               </li>
             ))}
           </ul>
           {!loading && workspaces.length === 0 && (
-            <p className="text-muted">\u6682\u65E0\u5DE5\u4F5C\u533A</p>
+            <p className="text-muted">暂无工作区</p>
           )}
           {activeWs && (
             <button
@@ -339,7 +339,7 @@ function Workspace() {
               className="btn btn-danger ws-delete-btn"
               onClick={() => setShowDelete(true)}
             >
-              \u5220\u9664\u5DE5\u4F5C\u533A
+              删除工作区
             </button>
           )}
         </aside>
@@ -357,16 +357,16 @@ function Workspace() {
 
         {/* Right: Item detail panel */}
         <aside className="col-context">
-          <h3 className="col-title">\u8BE6\u60C5</h3>
+          <h3 className="col-title">详情</h3>
           {selectedItem ? (
             <div className="context-detail">
-              <p><strong>\u7C7B\u578B:</strong> {selectedItem.type}</p>
-              <p><strong>\u6807\u9898:</strong> {selectedItem.title}</p>
+              <p><strong>类型:</strong> {selectedItem.type}</p>
+              <p><strong>标题:</strong> {selectedItem.title}</p>
               {selectedItem.surface && (
-                <p><strong>\u6765\u6E90:</strong> {selectedItem.surface}</p>
+                <p><strong>来源:</strong> {selectedItem.surface}</p>
               )}
               {selectedItem.created && (
-                <p><strong>\u65F6\u95F4:</strong> {selectedItem.created}</p>
+                <p><strong>时间:</strong> {selectedItem.created}</p>
               )}
               <hr className="divider" />
 
@@ -380,7 +380,7 @@ function Workspace() {
               {/* Tags */}
               <div className="ws-detail-section">
                 <div className="ws-detail-section-header">
-                  <strong>\u6807\u7B7E:</strong>
+                  <strong>标签:</strong>
                   <button
                     type="button"
                     className="ws-item-action-btn"
@@ -389,7 +389,7 @@ function Workspace() {
                       setTagDraft(selectedItem.tags?.join(', ') || '')
                     }}
                   >
-                    \u270F
+                    ✏
                   </button>
                 </div>
                 {editingTags ? (
@@ -399,11 +399,11 @@ function Workspace() {
                       className="facet-input"
                       value={tagDraft}
                       onChange={(e) => setTagDraft(e.target.value)}
-                      placeholder="\u6807\u7B7E1, \u6807\u7B7E2..."
+                      placeholder="标签1, 标签2..."
                     />
                     <div className="btn-group">
-                      <button type="button" className="btn btn-primary" onClick={handleSaveTags}>\u4FDD\u5B58</button>
-                      <button type="button" className="btn btn-secondary" onClick={() => setEditingTags(false)}>\u53D6\u6D88</button>
+                      <button type="button" className="btn btn-primary" onClick={handleSaveTags}>保存</button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setEditingTags(false)}>取消</button>
                     </div>
                   </div>
                 ) : (
@@ -413,7 +413,7 @@ function Workspace() {
                         <span key={tag} className="ws-item-tag">{tag}</span>
                       ))
                     ) : (
-                      <span className="text-muted">\u65E0\u6807\u7B7E</span>
+                      <span className="text-muted">无标签</span>
                     )}
                   </div>
                 )}
@@ -424,7 +424,7 @@ function Workspace() {
               {/* Notes */}
               <div className="ws-detail-section">
                 <div className="ws-detail-section-header">
-                  <strong>\u5907\u6CE8:</strong>
+                  <strong>备注:</strong>
                   <button
                     type="button"
                     className="ws-item-action-btn"
@@ -433,7 +433,7 @@ function Workspace() {
                       setNoteDraft(selectedItem.notes || '')
                     }}
                   >
-                    \u270F
+                    ✏
                   </button>
                 </div>
                 {editingNote ? (
@@ -442,23 +442,23 @@ function Workspace() {
                       className="facet-input ws-dialog-textarea"
                       value={noteDraft}
                       onChange={(e) => setNoteDraft(e.target.value)}
-                      placeholder="\u6DFB\u52A0\u5907\u6CE8..."
+                      placeholder="添加备注..."
                       rows={3}
                     />
                     <div className="btn-group">
-                      <button type="button" className="btn btn-primary" onClick={handleSaveNote}>\u4FDD\u5B58</button>
-                      <button type="button" className="btn btn-secondary" onClick={() => setEditingNote(false)}>\u53D6\u6D88</button>
+                      <button type="button" className="btn btn-primary" onClick={handleSaveNote}>保存</button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setEditingNote(false)}>取消</button>
                     </div>
                   </div>
                 ) : (
                   <p className="context-body">
-                    {selectedItem.notes || <span className="text-muted">\u65E0\u5907\u6CE8</span>}
+                    {selectedItem.notes || <span className="text-muted">无备注</span>}
                   </p>
                 )}
               </div>
             </div>
           ) : (
-            <p className="text-muted">\u70B9\u51FB\u6761\u76EE\u67E5\u770B\u8BE6\u60C5</p>
+            <p className="text-muted">点击条目查看详情</p>
           )}
         </aside>
       </div>

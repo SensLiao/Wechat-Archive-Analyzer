@@ -55,22 +55,36 @@ export async function apiFetch<T = unknown>(
     },
   })
 
-  // Handle session expiry at HTTP level (before JSON parsing)
-  if (res.status === 401 && localStorage.getItem('wxtools_token')) {
+  // Try to parse as JSON envelope
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    // Non-JSON 401 means the session token is invalid (not a domain error)
+    if (res.status === 401 && localStorage.getItem('wxtools_token')) {
+      localStorage.removeItem('wxtools_token')
+      window.alert(
+        'Session expired (server may have restarted). The page will reload to obtain a new token.',
+      )
+      window.location.reload()
+      throw new Error('Session expired — reloading')
+    }
+    throw new Error(res.statusText || `HTTP ${res.status}`)
+  }
+
+  // Handle session expiry: only if 401 AND response is NOT an ApiEnvelope
+  // (ApiEnvelope 401s are domain errors like KEY_PASSWORD_WRONG, not token issues)
+  if (
+    res.status === 401 &&
+    localStorage.getItem('wxtools_token') &&
+    !(body !== null && typeof body === 'object' && 'ok' in (body as Record<string, unknown>))
+  ) {
     localStorage.removeItem('wxtools_token')
     window.alert(
       'Session expired (server may have restarted). The page will reload to obtain a new token.',
     )
     window.location.reload()
     throw new Error('Session expired — reloading')
-  }
-
-  // Try to parse as JSON envelope
-  let body: unknown
-  try {
-    body = await res.json()
-  } catch {
-    throw new Error(res.statusText || `HTTP ${res.status}`)
   }
 
   // If the response matches the ApiEnvelope shape, unwrap it

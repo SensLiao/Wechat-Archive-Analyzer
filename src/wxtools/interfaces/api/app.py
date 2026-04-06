@@ -18,8 +18,8 @@ logger = logging.getLogger("wxtools.api")
 
 # HTTP status mapping for known error codes
 _ERROR_STATUS: dict[str, int] = {
-    "KEY_NOT_FOUND": 401,
-    "KEY_PASSWORD_WRONG": 401,
+    "KEY_NOT_FOUND": 404,
+    "KEY_PASSWORD_WRONG": 403,
     "ACCOUNT_NOT_FOUND": 404,
     "DB_NOT_FOUND": 404,
     "CACHE_EMPTY": 404,

@@ -20,9 +20,9 @@ interface RecentExportsProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  completed: '\u5DF2\u5B8C\u6210',
-  in_progress: '\u8FDB\u884C\u4E2D',
-  failed: '\u5931\u8D25',
+  completed: '已完成',
+  in_progress: '进行中',
+  failed: '失败',
 }
 
 function RecentExports({
@@ -33,11 +33,11 @@ function RecentExports({
   compact = false,
 }: RecentExportsProps) {
   if (loading) {
-    return <p className="text-muted">\u52A0\u8F7D\u4E2D...</p>
+    return <p className="text-muted">加载中...</p>
   }
 
   if (records.length === 0) {
-    return <p className="text-muted">\u6682\u65E0\u5BFC\u51FA\u8BB0\u5F55</p>
+    return <p className="text-muted">暂无导出记录</p>
   }
 
   if (compact) {
@@ -65,12 +65,12 @@ function RecentExports({
       <table className="export-table">
         <thead>
           <tr>
-            <th>\u6A21\u677F</th>
-            <th>\u683C\u5F0F</th>
-            <th>\u65F6\u95F4</th>
-            <th>\u72B6\u6001</th>
-            <th>\u6587\u4EF6\u6570</th>
-            <th>\u64CD\u4F5C</th>
+            <th>模板</th>
+            <th>格式</th>
+            <th>时间</th>
+            <th>状态</th>
+            <th>文件数</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -93,7 +93,7 @@ function RecentExports({
                       className="btn btn-secondary"
                       onClick={() => onOpenDir(rec.output_dir!)}
                     >
-                      \u6253\u5F00\u76EE\u5F55
+                      打开目录
                     </button>
                   )}
                   {onReExport && (
@@ -102,7 +102,7 @@ function RecentExports({
                       className="btn btn-secondary"
                       onClick={() => onReExport(rec)}
                     >
-                      \u91CD\u65B0\u5BFC\u51FA
+                      重新导出
                     </button>
                   )}
                 </div>

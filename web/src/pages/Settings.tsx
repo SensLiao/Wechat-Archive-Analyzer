@@ -3,24 +3,24 @@ import { apiFetch } from '@/lib/api'
 
 interface AccountInfo {
   wxid: string
-  nickname: string
-  data_dir: string
-  wechat_version?: string
-  db_count?: number
+  path: string
+  db_dir: string
+  version?: string
 }
 
 interface KeyStatusItem {
-  account: string
-  status: string
-  algorithm?: string
-  extracted_at?: string | null
+  wxid: string
+  plugin: string
+  protection: string
+  created_at: string
+  last_verified: string
 }
 
 interface CacheStatus {
   cache_dir: string
-  total_size?: string
-  accounts?: Record<string, unknown>
-  [key: string]: unknown
+  total_size_bytes: number
+  total_size_human: string
+  accounts?: Array<Record<string, unknown>>
 }
 
 function Settings() {
@@ -57,10 +57,10 @@ function Settings() {
         (r) => r.status === 'rejected'
       )
       if (failures.length === 3) {
-        setError('\u65E0\u6CD5\u8FDE\u63A5\u5230\u540E\u7AEF\u670D\u52A1')
+        setError('无法连接到后端服务')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '\u52A0\u8F7D\u5931\u8D25')
+      setError(err instanceof Error ? err.message : '加载失败')
     } finally {
       setLoading(false)
     }
@@ -78,13 +78,18 @@ function Settings() {
   const handleVerifyKey = async (account?: string) => {
     setActionLoading('verify-key')
     try {
-      const result = await apiFetch<{ valid: boolean; message?: string }>('/key/verify', {
+      const result = await apiFetch<{ account: string; total: number; passed: number; failed: number }>('/key/verify', {
         method: 'POST',
         body: JSON.stringify({ account: account || undefined }),
       })
-      showAction(result.valid ? '\u5BC6\u94A5\u9A8C\u8BC1\u6210\u529F' : `\u5BC6\u94A5\u9A8C\u8BC1\u5931\u8D25: ${result.message || '\u672A\u77E5\u9519\u8BEF'}`)
+      if (result.failed === 0) {
+        showAction(`密钥验证成功: ${result.passed}/${result.total} 个数据库通过`)
+      } else {
+        showAction(`密钥验证部分失败: ${result.passed}/${result.total} 通过, ${result.failed} 失败`)
+      }
+      loadData() // refresh to show updated last_verified
     } catch (err) {
-      showAction(`\u5BC6\u94A5\u9A8C\u8BC1\u5931\u8D25: ${err instanceof Error ? err.message : '\u672A\u77E5\u9519\u8BEF'}`)
+      showAction(`密钥验证失败: ${err instanceof Error ? err.message : '未知错误'}`)
     } finally {
       setActionLoading(null)
     }
@@ -97,10 +102,10 @@ function Settings() {
         method: 'POST',
         body: JSON.stringify({}),
       })
-      showAction('\u7D22\u5F15\u91CD\u5EFA\u5B8C\u6210')
+      showAction('索引重建完成')
       loadData()
     } catch (err) {
-      showAction(`\u7D22\u5F15\u91CD\u5EFA\u5931\u8D25: ${err instanceof Error ? err.message : '\u672A\u77E5\u9519\u8BEF'}`)
+      showAction(`索引重建失败: ${err instanceof Error ? err.message : '未知错误'}`)
     } finally {
       setActionLoading(null)
     }
@@ -113,10 +118,10 @@ function Settings() {
         method: 'POST',
         body: JSON.stringify({}),
       })
-      showAction('\u7F13\u5B58\u5DF2\u6E05\u7A7A')
+      showAction('缓存已清空')
       loadData()
     } catch (err) {
-      showAction(`\u6E05\u7A7A\u7F13\u5B58\u5931\u8D25: ${err instanceof Error ? err.message : '\u672A\u77E5\u9519\u8BEF'}`)
+      showAction(`清空缓存失败: ${err instanceof Error ? err.message : '未知错误'}`)
     } finally {
       setActionLoading(null)
     }
@@ -127,48 +132,42 @@ function Settings() {
 
   return (
     <div className="page page-settings">
-      <h1 className="page-title">{'\u8BBE\u7F6E'}</h1>
+      <h1 className="page-title">{'设置'}</h1>
 
-      {loading && <p className="text-muted">{'\u52A0\u8F7D\u4E2D...'}</p>}
-      {error && <p className="text-error">{'\u52A0\u8F7D\u8BBE\u7F6E\u5931\u8D25'}: {error}</p>}
+      {loading && <p className="text-muted">{'加载中...'}</p>}
+      {error && <p className="text-error">{'加载设置失败'}: {error}</p>}
       {actionMessage && <p className="text-info">{actionMessage}</p>}
 
       {!loading && (
         <div className="settings-sections">
           {/* Account */}
           <section className="settings-card">
-            <h2 className="section-title">{'\u8D26\u53F7\u4FE1\u606F'}</h2>
+            <h2 className="section-title">{'账号信息'}</h2>
             {firstAccount ? (
               <dl className="settings-dl">
-                <dt>{'\u5FAE\u4FE1 ID'}</dt>
+                <dt>{'微信 ID'}</dt>
                 <dd>{firstAccount.wxid}</dd>
-                <dt>{'\u6635\u79F0'}</dt>
-                <dd>{firstAccount.nickname}</dd>
-                {firstAccount.wechat_version && (
+                {firstAccount.version && (
                   <>
-                    <dt>{'\u5FAE\u4FE1\u7248\u672C'}</dt>
-                    <dd>{firstAccount.wechat_version}</dd>
+                    <dt>{'微信版本'}</dt>
+                    <dd>{firstAccount.version}</dd>
                   </>
                 )}
-                <dt>{'\u6570\u636E\u76EE\u5F55'}</dt>
-                <dd className="mono">{firstAccount.data_dir}</dd>
-                {firstAccount.db_count !== undefined && (
-                  <>
-                    <dt>{'\u6570\u636E\u5E93\u6570\u91CF'}</dt>
-                    <dd>{firstAccount.db_count}</dd>
-                  </>
-                )}
+                <dt>{'数据目录'}</dt>
+                <dd className="mono">{firstAccount.path}</dd>
+                <dt>{'数据库目录'}</dt>
+                <dd className="mono">{firstAccount.db_dir}</dd>
               </dl>
             ) : (
-              <p className="text-muted">{'\u672A\u53D1\u73B0\u8D26\u53F7'}</p>
+              <p className="text-muted">{'未发现账号'}</p>
             )}
             {accounts.length > 1 && (
               <details style={{ marginTop: 'var(--space-md)' }}>
-                <summary>{'\u5176\u4ED6\u8D26\u53F7'} ({accounts.length - 1})</summary>
+                <summary>{'其他账号'} ({accounts.length - 1})</summary>
                 <ul>
                   {accounts.slice(1).map((acc) => (
                     <li key={acc.wxid}>
-                      {acc.nickname} ({acc.wxid})
+                      {acc.wxid} ({acc.version || ''})
                     </li>
                   ))}
                 </ul>
@@ -178,59 +177,65 @@ function Settings() {
 
           {/* Key */}
           <section className="settings-card">
-            <h2 className="section-title">{'\u5BC6\u94A5\u72B6\u6001'}</h2>
+            <h2 className="section-title">{'密钥状态'}</h2>
             {firstKey ? (
               <dl className="settings-dl">
-                <dt>{'\u8D26\u53F7'}</dt>
-                <dd>{firstKey.account}</dd>
-                <dt>{'\u72B6\u6001'}</dt>
+                <dt>{'账号'}</dt>
+                <dd>{firstKey.wxid}</dd>
+                <dt>{'保护方式'}</dt>
                 <dd>
-                  <span className={`status-badge status-${firstKey.status}`}>
-                    {firstKey.status}
+                  <span className={`status-badge status-${firstKey.protection}`}>
+                    {firstKey.protection}
                   </span>
                 </dd>
-                {firstKey.algorithm && (
+                {firstKey.plugin && (
                   <>
-                    <dt>{'\u7B97\u6CD5'}</dt>
-                    <dd>{firstKey.algorithm}</dd>
+                    <dt>{'插件'}</dt>
+                    <dd>{firstKey.plugin}</dd>
                   </>
                 )}
-                {firstKey.extracted_at && (
+                {firstKey.created_at && (
                   <>
-                    <dt>{'\u63D0\u53D6\u65F6\u95F4'}</dt>
-                    <dd>{firstKey.extracted_at}</dd>
+                    <dt>{'创建时间'}</dt>
+                    <dd>{firstKey.created_at}</dd>
+                  </>
+                )}
+                {firstKey.last_verified && (
+                  <>
+                    <dt>{'上次验证'}</dt>
+                    <dd>{firstKey.last_verified}</dd>
                   </>
                 )}
               </dl>
             ) : (
-              <p className="text-muted">{'\u672A\u53D1\u73B0\u5BC6\u94A5'}</p>
+              <p className="text-muted">{'未发现密钥'}</p>
             )}
             <button
               className="btn btn-secondary"
               type="button"
               disabled={actionLoading === 'verify-key'}
-              onClick={() => handleVerifyKey(firstKey?.account)}
+              onClick={() => handleVerifyKey(firstKey?.wxid)}
             >
-              {actionLoading === 'verify-key' ? '\u9A8C\u8BC1\u4E2D...' : '\u9A8C\u8BC1\u5BC6\u94A5'}
+              {actionLoading === 'verify-key' ? '验证中...' : '验证密钥'}
             </button>
           </section>
 
           {/* Cache */}
           <section className="settings-card">
-            <h2 className="section-title">{'\u7F13\u5B58'}</h2>
+            <h2 className="section-title">{'缓存'}</h2>
             {cacheStatus ? (
               <dl className="settings-dl">
-                <dt>{'\u7F13\u5B58\u76EE\u5F55'}</dt>
+                <dt>{'缓存目录'}</dt>
                 <dd className="mono">{cacheStatus.cache_dir}</dd>
-                {cacheStatus.total_size && (
+                {cacheStatus.total_size_human && (
                   <>
-                    <dt>{'\u603B\u5927\u5C0F'}</dt>
-                    <dd>{cacheStatus.total_size}</dd>
+                    <dt>{'总大小'}</dt>
+                    <dd>{cacheStatus.total_size_human}</dd>
                   </>
                 )}
               </dl>
             ) : (
-              <p className="text-muted">{'\u65E0\u7F13\u5B58\u4FE1\u606F'}</p>
+              <p className="text-muted">{'无缓存信息'}</p>
             )}
             <div className="btn-group">
               <button
@@ -239,7 +244,7 @@ function Settings() {
                 disabled={actionLoading === 'build-index'}
                 onClick={handleBuildIndex}
               >
-                {actionLoading === 'build-index' ? '\u91CD\u5EFA\u4E2D...' : '\u91CD\u5EFA\u7D22\u5F15'}
+                {actionLoading === 'build-index' ? '重建中...' : '重建索引'}
               </button>
               <button
                 className="btn btn-danger"
@@ -247,7 +252,7 @@ function Settings() {
                 disabled={actionLoading === 'clear-cache'}
                 onClick={handleClearCache}
               >
-                {actionLoading === 'clear-cache' ? '\u6E05\u7A7A\u4E2D...' : '\u6E05\u7A7A\u7F13\u5B58'}
+                {actionLoading === 'clear-cache' ? '清空中...' : '清空缓存'}
               </button>
             </div>
           </section>

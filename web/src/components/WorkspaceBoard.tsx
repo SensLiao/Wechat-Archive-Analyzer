@@ -78,7 +78,7 @@ function WorkspaceBoard({
   if (!workspace) {
     return (
       <section className="col-results ws-board-empty">
-        <p className="text-muted">\u9009\u62E9\u5DE5\u4F5C\u533A\u6216\u521B\u5EFA\u65B0\u5DE5\u4F5C\u533A</p>
+        <p className="text-muted">选择工作区或创建新工作区</p>
       </section>
     )
   }
@@ -92,14 +92,14 @@ function WorkspaceBoard({
           {workspace.description && (
             <p className="ws-board-desc">{workspace.description}</p>
           )}
-          <span className="ws-board-count">{workspace.item_count} \u9879</span>
+          <span className="ws-board-count">{workspace.item_count} 项</span>
         </div>
         <button
           type="button"
           className="btn btn-primary"
           onClick={onExportWorkspace}
         >
-          \u5BFC\u51FA\u5DE5\u4F5C\u533A
+          导出工作区
         </button>
       </div>
 
@@ -112,7 +112,7 @@ function WorkspaceBoard({
             value={tagFilter}
             onChange={(e) => setTagFilter(e.target.value)}
           >
-            <option value="">\u5168\u90E8\u6807\u7B7E</option>
+            <option value="">全部标签</option>
             {allTags.map((tag) => (
               <option key={tag} value={tag}>{tag}</option>
             ))}
@@ -126,14 +126,14 @@ function WorkspaceBoard({
             className={`ws-toolbar-btn ${sortKey === 'time' ? 'ws-toolbar-btn-active' : ''}`}
             onClick={() => setSortKey('time')}
           >
-            \u6309\u65F6\u95F4
+            按时间
           </button>
           <button
             type="button"
             className={`ws-toolbar-btn ${sortKey === 'type' ? 'ws-toolbar-btn-active' : ''}`}
             onClick={() => setSortKey('type')}
           >
-            \u6309\u7C7B\u578B
+            按类型
           </button>
         </div>
 
@@ -143,25 +143,25 @@ function WorkspaceBoard({
             type="button"
             className={`ws-toolbar-btn ${viewMode === 'timeline' ? 'ws-toolbar-btn-active' : ''}`}
             onClick={() => setViewMode('timeline')}
-            title="\u65F6\u95F4\u7EBF"
+            title="时间线"
           >
-            \u2502
+            │
           </button>
           <button
             type="button"
             className={`ws-toolbar-btn ${viewMode === 'group' ? 'ws-toolbar-btn-active' : ''}`}
             onClick={() => setViewMode('group')}
-            title="\u5206\u7EC4"
+            title="分组"
           >
-            \u25A6
+            ▦
           </button>
           <button
             type="button"
             className={`ws-toolbar-btn ${viewMode === 'list' ? 'ws-toolbar-btn-active' : ''}`}
             onClick={() => setViewMode('list')}
-            title="\u5217\u8868"
+            title="列表"
           >
-            \u2630
+            ☰
           </button>
         </div>
       </div>
@@ -169,7 +169,7 @@ function WorkspaceBoard({
       {/* Items */}
       {displayItems.length === 0 ? (
         <div className="ws-board-empty-items">
-          <p className="text-muted">\u4ECE\u641C\u7D22\u7ED3\u679C\u4E2D\u6DFB\u52A0\u5185\u5BB9\u5230\u5DE5\u4F5C\u533A</p>
+          <p className="text-muted">从搜索结果中添加内容到工作区</p>
         </div>
       ) : viewMode === 'group' && groupedItems ? (
         <div className="ws-item-groups">
