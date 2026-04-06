@@ -261,6 +261,30 @@ body {
   padding: var(--space-xl) var(--space-2xl);
   max-width: 1440px;
   min-height: 100vh;
+  position: relative;
+}
+
+/* Session recovery toast */
+.toast-bar {
+  position: fixed;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: var(--color-warning-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-xl);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
   transition: margin-left var(--transition-slow);
 }
 

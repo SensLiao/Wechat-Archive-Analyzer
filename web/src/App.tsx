@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
+import { checkSessionRecovery } from './lib/api'
 import Home from './pages/Home'
 import Search from './pages/Search'
 import Workspace from './pages/Workspace'
@@ -6,6 +8,16 @@ import Exports from './pages/Exports'
 import Settings from './pages/Settings'
 
 function App() {
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    const msg = checkSessionRecovery()
+    if (msg) {
+      setToast(msg)
+      setTimeout(() => setToast(null), 5000)
+    }
+  }, [])
+
   return (
     <div className="app-shell">
       <nav className="sidebar">
@@ -21,6 +33,11 @@ function App() {
         <NavLink to="/settings" className="nav-item">设置</NavLink>
       </nav>
       <main className="main-content">
+        {toast && (
+          <div className="toast-bar" onClick={() => setToast(null)}>
+            {toast}
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<Search />} />
