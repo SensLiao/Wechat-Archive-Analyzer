@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from wxtools.domain.errors import WxToolsError
@@ -99,8 +99,33 @@ def create_app(*, static_dir: Path | None = None) -> tuple[FastAPI, str]:
 
     # Serve static frontend files if directory provided
     if static_dir and static_dir.is_dir():
+        index_html = static_dir / "index.html"
+        _index_template = ""
+        if index_html.is_file():
+            _index_template = index_html.read_text(encoding="utf-8")
+
+        # Serve static assets (JS, CSS, images) normally
         app.mount(
-            "/", StaticFiles(directory=str(static_dir), html=True), name="static"
+            "/assets",
+            StaticFiles(directory=str(static_dir / "assets")),
+            name="static-assets",
         )
+
+        # For all non-API routes, serve index.html with token injected.
+        # This ensures every page load (including refreshes) gets the
+        # current valid session token — no URL params or localStorage needed.
+        @app.get("/{full_path:path}", response_class=HTMLResponse)
+        async def serve_spa(request: Request, full_path: str = ""):
+            # Skip API paths (shouldn't reach here due to prefix, but be safe)
+            if full_path.startswith("api/"):
+                return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+            injected_token = request.app.state.session_token
+            # Inject token as a global variable before the app script loads
+            inject_script = (
+                f'<script>window.__WXTOOLS_TOKEN__="{injected_token}";</script>'
+            )
+            html = _index_template.replace("</head>", f"{inject_script}</head>")
+            return HTMLResponse(content=html)
 
     return app, token

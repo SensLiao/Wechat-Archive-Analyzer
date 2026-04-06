@@ -20,17 +20,24 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Get the session token. The backend injects it into the HTML as
+ * window.__WXTOOLS_TOKEN__ on every page load, so it's always fresh
+ * and survives server restarts without stale-token issues.
+ */
 function getToken(): string {
-  // Token is stored in localStorage by main.tsx at page load time.
-  // Also check URL as fallback (e.g. if main.tsx extraction was skipped).
+  // Primary: injected by backend into index.html
+  const injected = (window as unknown as Record<string, unknown>).__WXTOOLS_TOKEN__
+  if (typeof injected === 'string' && injected) {
+    return injected
+  }
+  // Fallback: URL param (for dev mode / direct API access)
   const params = new URLSearchParams(window.location.search)
   const urlToken = params.get('token')
   if (urlToken) {
-    localStorage.setItem('wxtools_token', urlToken)
-    window.history.replaceState({}, '', window.location.pathname)
     return urlToken
   }
-  return localStorage.getItem('wxtools_token') || ''
+  return ''
 }
 
 /**
@@ -38,8 +45,6 @@ function getToken(): string {
  *
  * On success (ok=true), returns the `data` field typed as T.
  * On failure (ok=false), throws an ApiError with the error code and message.
- * On HTTP-level failures (non-JSON, network errors), falls back to the
- * previous error handling.
  */
 export async function apiFetch<T = unknown>(
   path: string,
@@ -60,10 +65,8 @@ export async function apiFetch<T = unknown>(
   try {
     body = await res.json()
   } catch {
-    // Non-JSON 401 means the session token is invalid (not a domain error)
     if (res.status === 401) {
-      handleSessionExpiry()
-      throw new Error('Session expired — reloading')
+      throw new ApiError('SESSION_EXPIRED', '会话已过期，请刷新页面')
     }
     throw new Error(res.statusText || `HTTP ${res.status}`)
   }
@@ -74,8 +77,7 @@ export async function apiFetch<T = unknown>(
     res.status === 401 &&
     !(body !== null && typeof body === 'object' && 'ok' in (body as Record<string, unknown>))
   ) {
-    handleSessionExpiry()
-    throw new Error('Session expired — reloading')
+    throw new ApiError('SESSION_EXPIRED', '会话已过期，请刷新页面')
   }
 
   // If the response matches the ApiEnvelope shape, unwrap it
@@ -107,29 +109,4 @@ export async function apiFetch<T = unknown>(
   }
 
   return body as T
-}
-
-/** Handle session expiry by clearing stale token and reloading. */
-function handleSessionExpiry(): void {
-  const hadToken = localStorage.getItem('wxtools_token')
-  localStorage.removeItem('wxtools_token')
-
-  if (hadToken) {
-    // Only alert if we actually had a token (avoids loop on first load without token)
-    // Use a non-blocking approach: set a flag and reload
-    sessionStorage.setItem('wxtools_session_expired', '1')
-  }
-
-  // Reload to get fresh token from server
-  window.location.reload()
-}
-
-/** Check if we just recovered from a session expiry (call in App mount). */
-export function checkSessionRecovery(): string | null {
-  const expired = sessionStorage.getItem('wxtools_session_expired')
-  if (expired) {
-    sessionStorage.removeItem('wxtools_session_expired')
-    return '会话已过期（服务器可能已重启），页面已自动刷新。'
-  }
-  return null
 }

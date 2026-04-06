@@ -52,7 +52,7 @@ def start(ctx, host, port, open):
         click.echo("Press Ctrl+C to stop.\n")
 
     if open and not (state and state.json_mode):
-        # Open browser with token in URL for convenience
-        webbrowser.open(f"{url}?token={token}")
+        # Token is injected into HTML by the backend — no URL param needed
+        webbrowser.open(url)
 
     uvicorn.run(app_instance, host=host, port=port, log_level="info")
