@@ -1,8 +1,8 @@
 import hashlib
 import sqlite3
 
-from wxtools.core.schema import MessageFilter
-from wxtools.plugins.wechat.db_reader import DbReader
+from wxtools.domain.schema import MessageFilter
+from wxtools.infrastructure.wechat.db_reader import DbReader
 
 
 def _populate_msg_db(db_path, messages):
@@ -85,7 +85,7 @@ def test_search_with_limit(tmp_path):
     _populate_msg_db(cache_dir / "MSG0.db", msgs)
     _populate_micromsg(cache_dir / "MicroMsg.db", [{"id": "wxid_a", "nick": "A"}])
     reader = DbReader("wxid_test", str(tmp_path / "cache"))
-    from wxtools.core.schema import MessageFilter
+    from wxtools.domain.schema import MessageFilter
     result = reader.search(filters=MessageFilter(limit=5))
     assert len(result.messages) == 5
     assert result.has_more is True

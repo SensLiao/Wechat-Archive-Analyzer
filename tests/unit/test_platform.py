@@ -2,7 +2,7 @@
 import sys
 from unittest.mock import patch
 
-from wxtools.core.platform import current_platform, get_default_backend_name
+from wxtools.runtime.platform import current_platform, get_default_backend_name
 
 
 def test_current_platform_returns_known_value():

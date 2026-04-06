@@ -1,4 +1,4 @@
-from wxtools.plugins.wechat.schema_mapper import row_to_message, row_to_contact, map_message_type
+from wxtools.infrastructure.wechat.schema_mapper import row_to_message, row_to_contact, map_message_type
 
 def test_row_to_message_text():
     row = {

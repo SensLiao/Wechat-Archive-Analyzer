@@ -1,0 +1,8 @@
+{
+  "encrypted_key": "Z0FBQUFBQnAwZ3JEU1ZXa3llR09LcmV4T3JYTkJESU04QjM3MjIzdDlDaW9STDdsTWFKU1NianJqMkhveHZ6eFhzcXVmLWVnUTdTNFNWc0RXU3JoMlExZ2ItSzI0VGU5M0xEb0JhUUVZWDd4T1k3X3VGenZaTUQtQ1lXYkNNZHE3ck9vXzRTOG8zVmk=",
+  "session_key_protected": "c9B3EbZo+7CQJjR9+kqcYWdBQUFBQUJwMGdyRF8tcXBheDJiNlIzcnBrUzNuUGc1cVd3VnRsZktUQVdNMGFNOUFaMGFQZUlKdk5FNS1RSGJOc245a2lDWUItZUV0VnphbHBWYjduQmVycHFQZTBQNGt4Q25FUHdpZTA1UF95ZU1jZ2hoSG80OG5ZTklQOGdOaG8xV1BORE5iOGd3",
+  "protection": "password-file",
+  "expires_at": "2026-04-05T08:09:55.447745+00:00",
+  "account": "wxid_meta",
+  "plugin": "wechat"
+}

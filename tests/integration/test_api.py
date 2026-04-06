@@ -5,14 +5,14 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from wxtools.api.app import create_app
+from wxtools.interfaces.api.app import create_app
 
 
 @pytest.fixture()
 def client_and_token():
     """Create a test client with the session token."""
     app, token = create_app()
-    client = TestClient(app)
+    client = TestClient(app, raise_server_exceptions=False)
     return client, token
 
 
@@ -37,8 +37,9 @@ class TestHealth:
         r = client.get("/api/health")
         assert r.status_code == 200
         data = r.json()
-        assert data["status"] == "ok"
-        assert "version" in data
+        assert data["ok"] is True
+        assert data["data"]["status"] == "ok"
+        assert "version" in data["data"]
 
 
 # ---------------------------------------------------------------------------
@@ -74,7 +75,8 @@ class TestAccounts:
         r = client.get("/api/accounts", headers={"X-Session-Token": token})
         assert r.status_code == 200
         data = r.json()
-        assert isinstance(data, list)
+        assert data["ok"] is True
+        assert isinstance(data["data"], list)
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +88,9 @@ class TestHome:
         client, token = client_and_token
         r = client.get("/api/home/summary", headers={"X-Session-Token": token})
         assert r.status_code == 200
-        data = r.json()
+        envelope = r.json()
+        assert envelope["ok"] is True
+        data = envelope["data"]
         assert "accounts" in data
         assert "keys" in data
         assert "cache" in data
@@ -101,8 +105,9 @@ class TestKey:
         client, token = client_and_token
         r = client.get("/api/key/status", headers={"X-Session-Token": token})
         assert r.status_code == 200
-        data = r.json()
-        assert isinstance(data, list)
+        envelope = r.json()
+        assert envelope["ok"] is True
+        assert isinstance(envelope["data"], list)
 
 
 # ---------------------------------------------------------------------------
@@ -114,8 +119,9 @@ class TestCache:
         client, token = client_and_token
         r = client.get("/api/cache/status", headers={"X-Session-Token": token})
         assert r.status_code == 200
-        data = r.json()
-        assert "cache_dir" in data
+        envelope = r.json()
+        assert envelope["ok"] is True
+        assert "cache_dir" in envelope["data"]
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +133,9 @@ class TestWorkspaces:
         client, token = client_and_token
         r = client.get("/api/workspaces", headers={"X-Session-Token": token})
         assert r.status_code == 200
-        assert isinstance(r.json(), list)
+        envelope = r.json()
+        assert envelope["ok"] is True
+        assert isinstance(envelope["data"], list)
 
     def test_crud_workspace(self, client_and_token):
         client, token = client_and_token
@@ -136,31 +144,36 @@ class TestWorkspaces:
         # Create
         r = client.post("/api/workspaces", json={"name": "Test WS"}, headers=h)
         assert r.status_code == 200
-        ws = r.json()
+        envelope = r.json()
+        assert envelope["ok"] is True
+        ws = envelope["data"]
         assert ws["name"] == "Test WS"
         ws_id = ws["id"]
 
         # Get
         r = client.get(f"/api/workspaces/{ws_id}", headers=h)
         assert r.status_code == 200
-        assert r.json()["name"] == "Test WS"
+        assert r.json()["data"]["name"] == "Test WS"
 
         # Add items
         r = client.post(f"/api/workspaces/{ws_id}/items", json={
             "items": [{"type": "note", "title": "test note"}]
         }, headers=h)
         assert r.status_code == 200
-        assert len(r.json()["items"]) == 1
+        assert len(r.json()["data"]["items"]) == 1
 
         # Delete workspace
         r = client.delete(f"/api/workspaces/{ws_id}", headers=h)
         assert r.status_code == 200
-        assert r.json()["deleted"] is True
+        assert r.json()["data"]["deleted"] is True
 
     def test_get_nonexistent_workspace(self, client_and_token):
         client, token = client_and_token
         r = client.get("/api/workspaces/nonexistent", headers={"X-Session-Token": token})
         assert r.status_code == 404
+        envelope = r.json()
+        assert envelope["ok"] is False
+        assert envelope["error"]["code"] == "WORKSPACE_NOT_FOUND"
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +185,8 @@ class TestExportTemplates:
         client, token = client_and_token
         r = client.get("/api/export/templates", headers={"X-Session-Token": token})
         assert r.status_code == 200
-        data = r.json()
-        templates = data.get("templates", data) if isinstance(data, dict) else data
+        envelope = r.json()
+        assert envelope["ok"] is True
+        templates = envelope["data"]["templates"]
         assert isinstance(templates, list)
         assert len(templates) >= 3  # json, csv, html at minimum

@@ -1,10 +1,10 @@
 """Golden output tests: export synthetic DB and compare with expected."""
 import json
 import csv
-from wxtools.exporters.json_writer import JsonWriter
-from wxtools.exporters.csv_writer import CsvWriter
-from wxtools.exporters.html_writer import HtmlWriter
-from wxtools.core.schema import Message
+from wxtools.infrastructure.exporters.json_writer import JsonWriter
+from wxtools.infrastructure.exporters.csv_writer import CsvWriter
+from wxtools.infrastructure.exporters.html_writer import HtmlWriter
+from wxtools.domain.schema import Message
 from datetime import datetime, timezone
 
 GOLDEN_MESSAGES = [

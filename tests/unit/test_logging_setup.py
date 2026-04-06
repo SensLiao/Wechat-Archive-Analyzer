@@ -1,5 +1,5 @@
 import logging
-from wxtools.core.logging_setup import setup_logging, RedactionFilter
+from wxtools.runtime.logging_setup import setup_logging, RedactionFilter
 
 
 def test_redaction_filter_masks_key():

@@ -3,7 +3,7 @@ import os
 import stat
 import sys
 import pytest
-from wxtools.core.acl import secure_dir
+from wxtools.infrastructure.storage.acl import secure_dir
 
 def test_secure_dir_creates_directory(tmp_path):
     target = tmp_path / "secret"

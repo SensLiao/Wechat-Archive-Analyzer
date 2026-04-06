@@ -1,4 +1,4 @@
-from wxtools.cli.output import success_envelope, error_envelope
+from wxtools.interfaces.cli.output import success_envelope, error_envelope
 
 
 def test_success_envelope():
@@ -6,7 +6,7 @@ def test_success_envelope():
     assert result["ok"] is True
     assert result["data"]["count"] == 5
     assert result["meta"]["command"] == "query"
-    assert result["meta"]["version"] == "0.5.0"
+    assert result["meta"]["version"] == "0.6.0"
 
 
 def test_error_envelope():

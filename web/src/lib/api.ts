@@ -1,5 +1,25 @@
 const API_BASE = '/api'
 
+/** Standard API envelope returned by all backend endpoints. */
+export interface ApiEnvelope<T = unknown> {
+  ok: boolean
+  data: T | null
+  error: { code: string; message: string; remediation?: string | null } | null
+}
+
+/** Error thrown when the backend returns an envelope with ok=false. */
+export class ApiError extends Error {
+  code: string
+  remediation: string | null
+
+  constructor(code: string, message: string, remediation?: string | null) {
+    super(message)
+    this.name = 'ApiError'
+    this.code = code
+    this.remediation = remediation ?? null
+  }
+}
+
 function getToken(): string {
   // Token can come from URL param on first load or localStorage
   const params = new URLSearchParams(window.location.search)
@@ -13,6 +33,14 @@ function getToken(): string {
   return localStorage.getItem('wxtools_token') || ''
 }
 
+/**
+ * Fetch an API endpoint and unwrap the ApiEnvelope.
+ *
+ * On success (ok=true), returns the `data` field typed as T.
+ * On failure (ok=false), throws an ApiError with the error code and message.
+ * On HTTP-level failures (non-JSON, network errors), falls back to the
+ * previous error handling.
+ */
 export async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
@@ -26,18 +54,52 @@ export async function apiFetch<T = unknown>(
       ...options.headers,
     },
   })
-  if (!res.ok) {
-    if (res.status === 401 && localStorage.getItem('wxtools_token')) {
-      localStorage.removeItem('wxtools_token')
-      window.alert(
-        'Session expired (server may have restarted). The page will reload to obtain a new token.',
-      )
-      window.location.reload()
-      // Throw to prevent callers from processing the failed response
-      throw new Error('Session expired — reloading')
-    }
-    const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail?.message || err.detail || res.statusText)
+
+  // Handle session expiry at HTTP level (before JSON parsing)
+  if (res.status === 401 && localStorage.getItem('wxtools_token')) {
+    localStorage.removeItem('wxtools_token')
+    window.alert(
+      'Session expired (server may have restarted). The page will reload to obtain a new token.',
+    )
+    window.location.reload()
+    throw new Error('Session expired — reloading')
   }
-  return res.json()
+
+  // Try to parse as JSON envelope
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error(res.statusText || `HTTP ${res.status}`)
+  }
+
+  // If the response matches the ApiEnvelope shape, unwrap it
+  if (
+    body !== null &&
+    typeof body === 'object' &&
+    'ok' in (body as Record<string, unknown>)
+  ) {
+    const envelope = body as ApiEnvelope<T>
+    if (envelope.ok) {
+      return envelope.data as T
+    }
+    // Error envelope
+    const err = envelope.error
+    throw new ApiError(
+      err?.code ?? 'UNKNOWN',
+      err?.message ?? 'Unknown error',
+      err?.remediation,
+    )
+  }
+
+  // Fallback: legacy response (not wrapped) — return as-is for backward compat
+  if (!res.ok) {
+    const detail =
+      (body as Record<string, unknown>)?.detail ??
+      (body as Record<string, unknown>)?.message ??
+      res.statusText
+    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail))
+  }
+
+  return body as T
 }

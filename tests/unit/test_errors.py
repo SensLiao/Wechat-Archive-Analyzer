@@ -1,4 +1,4 @@
-from wxtools.core.errors import WxToolsError, KeyNotFoundError, AdminRequiredError
+from wxtools.domain.errors import WxToolsError, KeyNotFoundError, AdminRequiredError
 
 
 def test_wxtools_error_has_code_message_remediation():

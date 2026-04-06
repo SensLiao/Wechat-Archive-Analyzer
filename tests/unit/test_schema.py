@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from wxtools.core.schema import Message, Contact, MessageFilter, QueryResult, VALID_SURFACES
+from wxtools.domain.schema import Message, Contact, MessageFilter, QueryResult, VALID_SURFACES
 
 
 def test_message_creation():

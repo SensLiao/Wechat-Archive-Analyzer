@@ -2,7 +2,7 @@
 import sqlite3
 import hashlib
 import pytest
-from wxtools.plugins.wechat.fts_index import FtsIndex
+from wxtools.infrastructure.wechat.fts_index import FtsIndex
 
 @pytest.fixture
 def cache_with_messages(tmp_path):

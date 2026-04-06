@@ -1,0 +1,3 @@
+﻿timestamp,sender,conversation,type,surface,content,attachment_path
+2026-01-15T10:30:00+00:00,小明,测试会话,text,chat,你好，这是一条测试消息,
+2026-01-15T10:31:00+00:00,我,测试会话,text,chat,收到！,

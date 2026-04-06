@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from wxtools.plugins.wechat.account_discovery import discover_accounts, find_wechat_data_dir
+from wxtools.infrastructure.wechat.account_discovery import discover_accounts, find_wechat_data_dir
 
 
 def test_discover_accounts_from_fake_dir(tmp_path):
@@ -34,7 +34,7 @@ def test_find_wechat_data_dir_4x(tmp_path):
     # WeChat 4.x stores directly under user home (Windows paths)
     xdir = tmp_path / "xwechat_files"
     xdir.mkdir(parents=True)
-    with patch("wxtools.plugins.wechat.path_discovery.sys") as mock_sys:
+    with patch("wxtools.infrastructure.wechat.path_discovery.sys") as mock_sys:
         mock_sys.platform = "win32"
         result = find_wechat_data_dir(home_dir=tmp_path)
     assert result == xdir
@@ -44,7 +44,7 @@ def test_find_wechat_data_dir_4x_documents(tmp_path):
     # Some installations put it under Documents
     xdir = tmp_path / "Documents" / "xwechat_files"
     xdir.mkdir(parents=True)
-    with patch("wxtools.plugins.wechat.path_discovery.sys") as mock_sys:
+    with patch("wxtools.infrastructure.wechat.path_discovery.sys") as mock_sys:
         mock_sys.platform = "win32"
         result = find_wechat_data_dir(home_dir=tmp_path)
     assert result == xdir
@@ -53,7 +53,7 @@ def test_find_wechat_data_dir_4x_documents(tmp_path):
 def test_find_wechat_data_dir_3x_fallback(tmp_path):
     wdir = tmp_path / "Documents" / "WeChat Files"
     wdir.mkdir(parents=True)
-    with patch("wxtools.plugins.wechat.path_discovery.sys") as mock_sys:
+    with patch("wxtools.infrastructure.wechat.path_discovery.sys") as mock_sys:
         mock_sys.platform = "win32"
         result = find_wechat_data_dir(home_dir=tmp_path)
     assert result == wdir
