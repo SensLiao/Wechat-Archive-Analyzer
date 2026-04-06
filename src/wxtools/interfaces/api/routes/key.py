@@ -39,7 +39,9 @@ def get_status(cfg: Config = Depends(get_config)) -> dict:
 @router.post("/key/verify")
 def verify_key(body: VerifyBody, cfg: Config = Depends(get_config)) -> dict:
     """Verify that the stored key can decrypt the account databases."""
-    return success_envelope(key_service.verify_key(cfg, body.account, body.password))
+    from wxtools.application.account_service import resolve_wxid
+    wxid = body.account or resolve_wxid(cfg, None)
+    return success_envelope(key_service.verify_key(cfg, wxid, body.password))
 
 
 @router.post("/key/unlock")

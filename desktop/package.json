@@ -27,25 +27,22 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": ["x64"]
         }
       ],
-      "icon": "assets/icon.ico"
+      "forceCodeSigning": false,
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico",
-      "installerHeaderIcon": "assets/icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "wxtools"
     },
     "mac": {
-      "target": "dmg",
-      "icon": "assets/icon.icns"
+      "target": "dmg"
     },
     "extraResources": [
       {

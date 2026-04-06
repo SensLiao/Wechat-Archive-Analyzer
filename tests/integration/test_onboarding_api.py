@@ -93,5 +93,5 @@ class TestOnboardingVerifyContract:
             json={"account": "wxid_nonexistent"},
             headers=_headers(token),
         )
-        assert r.status_code == 401
+        assert r.status_code == 404
         _assert_error_envelope(r.json(), "KEY_NOT_FOUND")

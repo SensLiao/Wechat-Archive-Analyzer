@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MessageIcon, FileTextIcon, EyeIcon, BookIcon } from './Icons'
 
 export interface WorkspaceItemData {
   id: string
@@ -20,18 +21,18 @@ interface WorkspaceItemCardProps {
   onEditNotes: (itemId: string, notes: string) => void
 }
 
-const TYPE_ICONS: Record<WorkspaceItemData['type'], string> = {
-  message: '\u2709',   // envelope
-  article: '\u{1F4C4}', // page facing up
-  moment: '\u{1F4F7}',  // camera
-  note: '\u{1F4DD}',    // memo
+const TYPE_ICONS: Record<WorkspaceItemData['type'], React.ReactNode> = {
+  message: <MessageIcon size={16} />,
+  article: <FileTextIcon size={16} />,
+  moment: <EyeIcon size={16} />,
+  note: <BookIcon size={16} />,
 }
 
 const TYPE_LABELS: Record<WorkspaceItemData['type'], string> = {
-  message: '\u6D88\u606F',
-  article: '\u6587\u7AE0',
-  moment: '\u670B\u53CB\u5708',
-  note: '\u7B14\u8BB0',
+  message: '消息',
+  article: '文章',
+  moment: '朋友圈',
+  note: '笔记',
 }
 
 const SURFACE_COLORS: Record<string, string> = {
@@ -80,24 +81,24 @@ function WorkspaceItemCard({
             <button
               type="button"
               className="ws-item-action-btn"
-              title="\u7F16\u8F91\u5907\u6CE8"
+              title="编辑备注"
               onClick={(e) => {
                 e.stopPropagation()
                 setEditingNotes(true)
               }}
             >
-              \u270F
+              编辑
             </button>
             <button
               type="button"
               className="ws-item-action-btn ws-item-action-danger"
-              title="\u79FB\u9664"
+              title="移除"
               onClick={(e) => {
                 e.stopPropagation()
                 onRemove(item.id)
               }}
             >
-              \u2715
+              移除
             </button>
           </span>
         )}
@@ -143,15 +144,15 @@ function WorkspaceItemCard({
             className="ws-item-note-input"
             value={noteDraft}
             onChange={(e) => setNoteDraft(e.target.value)}
-            placeholder="\u6DFB\u52A0\u5907\u6CE8..."
+            placeholder="添加备注..."
             rows={2}
           />
           <div className="btn-group">
             <button type="button" className="btn btn-primary" onClick={handleSaveNotes}>
-              \u4FDD\u5B58
+              保存
             </button>
             <button type="button" className="btn btn-secondary" onClick={handleCancelNotes}>
-              \u53D6\u6D88
+              取消
             </button>
           </div>
         </div>

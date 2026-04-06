@@ -20,17 +20,24 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Get the session token. The backend injects it into the HTML as
+ * window.__WXTOOLS_TOKEN__ on every page load, so it's always fresh
+ * and survives server restarts without stale-token issues.
+ */
 function getToken(): string {
-  // Token can come from URL param on first load or localStorage
+  // Primary: injected by backend into index.html
+  const injected = (window as unknown as Record<string, unknown>).__WXTOOLS_TOKEN__
+  if (typeof injected === 'string' && injected) {
+    return injected
+  }
+  // Fallback: URL param (for dev mode / direct API access)
   const params = new URLSearchParams(window.location.search)
   const urlToken = params.get('token')
   if (urlToken) {
-    localStorage.setItem('wxtools_token', urlToken)
-    // Clean URL
-    window.history.replaceState({}, '', window.location.pathname)
     return urlToken
   }
-  return localStorage.getItem('wxtools_token') || ''
+  return ''
 }
 
 /**
@@ -38,8 +45,6 @@ function getToken(): string {
  *
  * On success (ok=true), returns the `data` field typed as T.
  * On failure (ok=false), throws an ApiError with the error code and message.
- * On HTTP-level failures (non-JSON, network errors), falls back to the
- * previous error handling.
  */
 export async function apiFetch<T = unknown>(
   path: string,
@@ -55,22 +60,24 @@ export async function apiFetch<T = unknown>(
     },
   })
 
-  // Handle session expiry at HTTP level (before JSON parsing)
-  if (res.status === 401 && localStorage.getItem('wxtools_token')) {
-    localStorage.removeItem('wxtools_token')
-    window.alert(
-      'Session expired (server may have restarted). The page will reload to obtain a new token.',
-    )
-    window.location.reload()
-    throw new Error('Session expired — reloading')
-  }
-
   // Try to parse as JSON envelope
   let body: unknown
   try {
     body = await res.json()
   } catch {
+    if (res.status === 401) {
+      throw new ApiError('SESSION_EXPIRED', '会话已过期，请刷新页面')
+    }
     throw new Error(res.statusText || `HTTP ${res.status}`)
+  }
+
+  // Handle session expiry: only if 401 AND response is NOT an ApiEnvelope
+  // (ApiEnvelope responses are domain errors like KEY_NOT_FOUND, not token issues)
+  if (
+    res.status === 401 &&
+    !(body !== null && typeof body === 'object' && 'ok' in (body as Record<string, unknown>))
+  ) {
+    throw new ApiError('SESSION_EXPIRED', '会话已过期，请刷新页面')
   }
 
   // If the response matches the ApiEnvelope shape, unwrap it

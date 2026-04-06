@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Local-first toolkit for decrypting and analyzing WeChat PC chat history. Primary interface is the `/wechat` Claude Code skill; also usable as a standalone CLI (`wxtools`). Plugin-based architecture allows future IM source and agent adapter extensions.
+Local-first toolkit for decrypting and analyzing WeChat PC chat history. Primary interface is the `/wechat` Claude Code skill; also usable as a standalone CLI (`wxtools`). Single data source (WeChat), DDD-inspired layered architecture.
 
 ## Document References
 
@@ -155,6 +155,10 @@ interfaces/desktop/─┘       │                    │
 - V6 dual-track: `main` branch = public CLI + skill; `desktop-local` branch = private Electron app
 - Plugin abstraction removed in V6 — single data source (WeChat), no multi-source registry
 - All API routes return `ApiEnvelope` wrapper: `{"ok": bool, "data": T, "error": {...}}`
+- Web UI exports default to browser download (.zip via temp dir); CLI exports write to specified `output_dir`
+- Export download endpoint (`/api/export/download/{id}`) uses query-param token auth (not header) since browsers navigate directly
+- `app start` auto-reclaims port if a previous server didn't shut down cleanly
+- Session token injected server-side into HTML (`window.__WXTOOLS_TOKEN__`), no localStorage dependency
 - **Auto-push rule:** 在 implementation 过程中，当代码变更已成熟（bug fix、feature 完成、配置修正等不需要用户额外决策的改动），完成 commit 后应立即 `git push` 到 GitHub，无需每次询问用户确认
 
 ## Questions.md Maintenance Rule
