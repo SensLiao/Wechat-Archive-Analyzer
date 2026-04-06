@@ -32,7 +32,8 @@ def start(ctx, host, port, open):
     state = ctx.obj
 
     # Determine static dir — look for built frontend
-    static_dir = Path(__file__).resolve().parents[3] / "web" / "dist"
+    # parents[5] goes from interfaces/cli/commands/app.py up to the repo root
+    static_dir = Path(__file__).resolve().parents[5] / "web" / "dist"
     if not static_dir.is_dir():
         static_dir = None
 
