@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import secrets
 import socket
+import sys
 import webbrowser
 from pathlib import Path
 from typing import Optional
@@ -45,9 +46,17 @@ def start_server(
         port = find_free_port(host) if mode == RuntimeMode.DESKTOP else 8808
 
     # Determine static dir — look for built frontend
-    static_dir = Path(__file__).resolve().parents[2] / "web" / "dist"
-    if not static_dir.is_dir():
-        static_dir = None
+    static_dir: Path | None = None
+    # 1) Dev: web/dist relative to source tree
+    dev_dir = Path(__file__).resolve().parents[2] / "web" / "dist"
+    if dev_dir.is_dir():
+        static_dir = dev_dir
+    elif getattr(sys, "frozen", False):
+        # 2) PyInstaller bundle: frontend is at <resources>/frontend/
+        #    sys.executable = <resources>/wxtools-backend/wxtools-backend.exe
+        frozen_dir = Path(sys.executable).resolve().parent.parent / "frontend"
+        if frozen_dir.is_dir():
+            static_dir = frozen_dir
 
     app_instance, token = create_app(static_dir=static_dir)
 
